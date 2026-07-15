@@ -44,6 +44,111 @@ const DEFAULT_CONFIG: Config = {
 
 export const CONFIG_DIR = join(homedir(), ".replyflow");
 export const CONFIG_PATH = join(CONFIG_DIR, "config.json");
+export const ACTIVE_ACCOUNT_PATH = join(CONFIG_DIR, "active_account");
+
+// ── Account helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Get the config directory path for a specific account.
+ */
+export function getAccountDir(accountName: string): string {
+  return join(CONFIG_DIR, "accounts", accountName);
+}
+
+/**
+ * Get the config file path for a specific account.
+ */
+export function getAccountConfigPath(accountName: string): string {
+  return join(getAccountDir(accountName), "config.json");
+}
+
+/**
+ * Read the currently active account name from ~/.replyflow/active_account.
+ * Returns undefined if no account is active or the file doesn't exist.
+ */
+export function getActiveAccount(): string | undefined {
+  try {
+    if (existsSync(ACTIVE_ACCOUNT_PATH)) {
+      const raw = readFileSync(ACTIVE_ACCOUNT_PATH, "utf-8").trim();
+      return raw || undefined;
+    }
+  } catch {
+    // Ignore read errors
+  }
+  return undefined;
+}
+
+/**
+ * Set the active account by writing to ~/.replyflow/active_account.
+ * Creates the config directory if it doesn't exist.
+ */
+export function setActiveAccount(account: string): void {
+  if (!existsSync(CONFIG_DIR)) {
+    mkdirSync(CONFIG_DIR, { recursive: true });
+  }
+  writeFileSync(ACTIVE_ACCOUNT_PATH, account, "utf-8");
+}
+
+/**
+ * Get the config for the currently active account.
+ *
+ * - If an account is active (active_account file exists with a name),
+ *   reads from ~/.replyflow/accounts/<name>/config.json.
+ * - If no account is active, falls back to ~/.replyflow/config.json (default).
+ * - If neither exists, returns default config.
+ */
+export function getEffectiveConfig(): Config {
+  const activeAccount = getActiveAccount();
+  if (activeAccount) {
+    const accountPath = getAccountConfigPath(activeAccount);
+    if (existsSync(accountPath)) {
+      try {
+        const raw = readFileSync(accountPath, "utf-8");
+        const parsed = JSON.parse(raw) as Partial<Config>;
+        return { ...DEFAULT_CONFIG, ...parsed };
+      } catch (err) {
+        console.error(
+          `[ReplyFlow] Warning: failed to parse ${accountPath}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+    // Account directory exists but no config file yet — return defaults
+    return { ...DEFAULT_CONFIG };
+  }
+  return getConfig();
+}
+
+/**
+ * Update the config for the currently active account (or default if none active).
+ *
+ * - If an account is active, writes to ~/.replyflow/accounts/<name>/config.json.
+ * - If no account is active, writes to ~/.replyflow/config.json.
+ */
+export function updateEffectiveConfig(partial: Partial<Config>): Config {
+  const activeAccount = getActiveAccount();
+  if (activeAccount) {
+    const accountDir = getAccountDir(activeAccount);
+    if (!existsSync(accountDir)) {
+      mkdirSync(accountDir, { recursive: true });
+    }
+    const accountPath = getAccountConfigPath(activeAccount);
+
+    let current: Config = { ...DEFAULT_CONFIG };
+    if (existsSync(accountPath)) {
+      try {
+        const raw = readFileSync(accountPath, "utf-8");
+        current = { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
+      } catch {
+        // Use defaults
+      }
+    }
+
+    const updated: Config = { ...current, ...partial };
+    writeFileSync(accountPath, JSON.stringify(updated, null, 2), "utf-8");
+    return updated;
+  }
+  return updateConfig(partial);
+}
 
 // ── Read ─────────────────────────────────────────────────────────────────────
 
@@ -51,6 +156,8 @@ export const CONFIG_PATH = join(CONFIG_DIR, "config.json");
  * Read config from ~/.replyflow/config.json.
  * If the file doesn't exist, returns the default config (does not throw).
  * Env vars are NOT merged here — callers should use resolveTwitterApiKey/Secret.
+ *
+ * Note: For account-aware config reading, use getEffectiveConfig() instead.
  */
 export function getConfig(): Config {
   if (!existsSync(CONFIG_PATH)) {
@@ -110,7 +217,7 @@ export function checkConfigIntegrity(config: Config): ConfigIntegrityReport {
   if (!hasApiCreds) {
     missing.push(
       "Twitter API Key + API Secret – set TWITTER_API_KEY + TWITTER_API_SECRET env vars, " +
-        "or add 'twitterApiKey' + 'twitterApiSecret' to ~/.replyflow/config.json",
+        "or add 'twitterApiKey' + 'twitterApiSecret' to your config file",
     );
   }
 
@@ -159,7 +266,7 @@ export function resolveTwitterApiKey(config: Config): string {
 
   throw new Error(
     "Twitter API key not found. Set TWITTER_API_KEY environment variable " +
-      "or add 'twitterApiKey' to ~/.replyflow/config.json",
+      "or add 'twitterApiKey' to your config file",
   );
 }
 
@@ -176,7 +283,7 @@ export function resolveTwitterApiSecret(config: Config): string {
 
   throw new Error(
     "Twitter API secret not found. Set TWITTER_API_SECRET environment variable " +
-      "or add 'twitterApiSecret' to ~/.replyflow/config.json",
+      "or add 'twitterApiSecret' to your config file",
   );
 }
 

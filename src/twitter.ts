@@ -20,7 +20,7 @@ import {
   resolveOAuth2RefreshToken,
   resolveOAuth2TokenExpiresAt,
   getNicheKeywords,
-  updateConfig,
+  updateEffectiveConfig,
 } from "./config.js";
 
 // ── Public types ─────────────────────────────────────────────────────────────
@@ -136,8 +136,8 @@ async function tryRefreshOAuth2Token(config: Config): Promise<Config | null> {
     const oauthClient = new TwitterApi({ clientId });
     const result = await oauthClient.refreshOAuth2Token(refreshToken);
 
-    // Update config with new tokens
-    const updatedConfig = updateConfig({
+    // Update config with new tokens (writes to active account or default)
+    const updatedConfig = updateEffectiveConfig({
       oauth2AccessToken: result.accessToken,
       oauth2RefreshToken: result.refreshToken,
       oauth2TokenExpiresAt: new Date(

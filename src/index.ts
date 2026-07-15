@@ -4,15 +4,17 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import {
-  getConfig,
+  getEffectiveConfig,
   checkConfigIntegrity,
   checkCredentials,
   resolveTwitterApiKey,
   resolveTwitterApiSecret,
   ReplyStyle,
-  updateConfig,
+  updateEffectiveConfig,
+  getActiveAccount,
+  setActiveAccount,
 } from "./config.js";
-import { list } from "./twitter.js";
+import { list, resetClient } from "./twitter.js";
 import { generateReply } from "./generate.js";
 import { appendHistory, readHistory, getRepliedTweetIds } from "./history.js";
 
@@ -30,7 +32,10 @@ async function main() {
   // ── Setup mode ───────────────────────────────────────────────────────
   if (args[0] === "setup") {
     const { runInteractiveSetup } = await import("./setup.js");
-    const ok = await runInteractiveSetup();
+    // Parse --account flag: `npx replyflow-mcp setup --account myaccount`
+    const accountIdx = args.indexOf("--account");
+    const account = accountIdx >= 0 && args[accountIdx + 1] ? args[accountIdx + 1] : undefined;
+    const ok = await runInteractiveSetup(account);
     process.exit(ok ? 0 : 1);
   }
 
@@ -40,9 +45,10 @@ async function main() {
     console.log("  ReplyFlow MCP Server");
     console.log("");
     console.log("  Usage:");
-    console.log("    npx replyflow-mcp           Start MCP server (stdio)");
-    console.log("    npx replyflow-mcp setup     Run interactive configuration");
-    console.log("    npx replyflow-mcp --help    Show this help");
+    console.log("    npx replyflow-mcp                        Start MCP server (stdio)");
+    console.log("    npx replyflow-mcp setup                  Run interactive configuration");
+    console.log("    npx replyflow-mcp setup --account NAME   Configure a specific account");
+    console.log("    npx replyflow-mcp --help                 Show this help");
     console.log("");
     process.exit(0);
   }
@@ -67,7 +73,7 @@ async function startServer() {
   );
 
   // ── Startup check ────────────────────────────────────────────────────
-  const config = getConfig();
+  const config = getEffectiveConfig();
   const integrity = checkConfigIntegrity(config);
   const hasCredentials = checkCredentials(config, integrity);
 
@@ -117,7 +123,7 @@ async function startServer() {
     },
     async (args) => {
       return withErrorHandling(async () => {
-        const config = getConfig();
+        const config = getEffectiveConfig();
         resolveTwitterApiKey(config);
         resolveTwitterApiSecret(config);
 
@@ -160,7 +166,7 @@ async function startServer() {
     },
     async (args) => {
       return withErrorHandling(async () => {
-        const config = getConfig();
+        const config = getEffectiveConfig();
         resolveTwitterApiKey(config);
         resolveTwitterApiSecret(config);
 
@@ -201,7 +207,8 @@ async function startServer() {
     },
     async (args) => {
       return withErrorHandling(async () => {
-        const entry = appendHistory(args.text, args.tweetId, args.style);
+        const account = getActiveAccount() || "default";
+        const entry = appendHistory(args.text, args.tweetId, args.style, account);
         return {
           content: [
             {
@@ -258,8 +265,8 @@ async function startServer() {
           };
         }
 
-        updateConfig(partial);
-        const cfg = getConfig();
+        updateEffectiveConfig(partial);
+        const cfg = getEffectiveConfig();
 
         return {
           content: [
@@ -286,7 +293,8 @@ async function startServer() {
     {},
     async () => {
       return withErrorHandling(async () => {
-        const cfg = getConfig();
+        const cfg = getEffectiveConfig();
+        const activeAccount = getActiveAccount();
         const report = checkConfigIntegrity(cfg);
 
         return {
@@ -295,6 +303,7 @@ async function startServer() {
               type: "text",
               text: JSON.stringify({
                 configured: report.ok,
+                activeAccount: activeAccount || "default",
                 issues: {
                   critical: report.missing,
                   warnings: report.warnings,
@@ -306,6 +315,39 @@ async function startServer() {
                   nicheKeywords: cfg.nicheKeywords,
                   replyStyle: cfg.replyStyle ?? cfg.preferredStyle ?? "curious",
                 },
+              }),
+            },
+          ],
+        };
+      });
+    },
+  );
+
+  // ── Tool: replyflow_switch_account ───────────────────────────────────
+
+  server.tool(
+    "replyflow_switch_account",
+    {
+      account: z.string().describe("Account name to switch to (e.g. 'personal', 'work')"),
+    },
+    async (args) => {
+      return withErrorHandling(async () => {
+        setActiveAccount(args.account);
+
+        // Reset Twitter client cache so next call picks up new account's credentials
+        resetClient();
+
+        // Verify the switch by re-reading
+        const switchedTo = getActiveAccount();
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                switched: true,
+                account: switchedTo,
+                message: `Switched to account: ${switchedTo}. All subsequent tool calls will use this account's configuration.`,
               }),
             },
           ],

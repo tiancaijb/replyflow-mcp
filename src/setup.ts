@@ -21,7 +21,9 @@ import {
   Config,
   ReplyStyle,
   CONFIG_PATH,
-  updateConfig,
+  updateEffectiveConfig,
+  setActiveAccount,
+  getAccountConfigPath,
 } from "./config.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -455,12 +457,22 @@ async function stepLlmKey(rl: ReadlineInterface): Promise<string | undefined> {
 /**
  * Run the full interactive setup.
  *
- * Returns `true` if config was saved, `false` if cancelled.
+ * @param account Optional account name (from `--account` flag).
+ *   If provided, switches to this account before configuring.
+ *   Returns `true` if config was saved, `false` if cancelled.
  */
-export async function runInteractiveSetup(): Promise<boolean> {
+export async function runInteractiveSetup(account?: string): Promise<boolean> {
   const rl = createReader();
 
   try {
+    // If an account is specified, switch to it before setup
+    if (account) {
+      setActiveAccount(account);
+      console.log("");
+      console.log(`  Configuring account: ${account}`);
+      console.log("");
+    }
+
     printWelcome();
 
     // Step 1: API credentials
@@ -516,9 +528,10 @@ export async function runInteractiveSetup(): Promise<boolean> {
       return false;
     }
 
-    updateConfig(config);
+    updateEffectiveConfig(config);
     console.log("");
-    console.log(`  ✅  Configuration saved to ${CONFIG_PATH}`);
+    const configPath = account ? getAccountConfigPath(account) : CONFIG_PATH;
+    console.log(`  ✅  Configuration saved to ${configPath}`);
     console.log("");
     console.log("  You can now start the MCP server:");
     console.log("");
