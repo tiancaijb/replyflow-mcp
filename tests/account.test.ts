@@ -4,7 +4,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { join } from "path";
 
 // ── Mock fs ──────────────────────────────────────────────────────────────────
-// Hoisted before imports so the config module sees mocked fs
 
 vi.mock("fs", () => {
   const mock = {
@@ -16,7 +15,6 @@ vi.mock("fs", () => {
   return { ...mock, default: mock };
 });
 
-// Mock os.homedir() to return a deterministic path
 vi.mock("os", () => ({
   homedir: vi.fn(() => "/home/testuser"),
   default: { homedir: vi.fn(() => "/home/testuser") },
@@ -31,8 +29,6 @@ import {
   setActiveAccount,
   getEffectiveConfig,
   updateEffectiveConfig,
-  getAccountDir,
-  getAccountConfigPath,
   ACTIVE_ACCOUNT_PATH,
   CONFIG_DIR,
   CONFIG_PATH,
@@ -43,50 +39,14 @@ import type { Config } from "../src/config.js";
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const HOMEDIR = "/home/testuser";
-const ACCOUNTS_DIR = join(HOMEDIR, ".replyflow", "accounts");
 
 /**
- * Simulate writing an active_account file by having existsSync/readFileSync
- * return appropriate values.
- */
-function mockActiveAccount(account: string | undefined): void {
-  if (account) {
-    // active_account file exists and contains the account name
-    vi.mocked(existsSync).mockImplementation((path: string) => {
-      if (path === ACTIVE_ACCOUNT_PATH) return true;
-      if (path === CONFIG_PATH) return false; // no default config
-      // Check if account config exists
-      if (path === getAccountConfigPath(account)) return true;
-      return false;
-    });
-    vi.mocked(readFileSync).mockImplementation((path: string) => {
-      if (path === ACTIVE_ACCOUNT_PATH) return account;
-      if (path === getAccountConfigPath(account)) {
-        return JSON.stringify({
-          nicheKeywords: [`keyword-${account}`],
-          replyStyle: "curious",
-        });
-      }
-      return "{}";
-    });
-  } else {
-    // No active account — active_account file doesn't exist
-    vi.mocked(existsSync).mockImplementation((path: string) => {
-      if (path === ACTIVE_ACCOUNT_PATH) return false;
-      if (path === CONFIG_PATH) return false;
-      return false;
-    });
-    vi.mocked(readFileSync).mockImplementation(() => "{}");
-  }
-}
-
-/**
- * Simulate having a default config.json with no active account.
+ * Simulate having a default config.json with given content.
  */
 function mockDefaultConfig(config: Partial<Config> = {}): void {
   vi.mocked(existsSync).mockImplementation((path: string) => {
-    if (path === ACTIVE_ACCOUNT_PATH) return false;
     if (path === CONFIG_PATH) return true;
+    if (path === ACTIVE_ACCOUNT_PATH) return false;
     return false;
   });
   vi.mocked(readFileSync).mockImplementation((path: string) => {
@@ -182,86 +142,46 @@ describe("account switching", () => {
     });
   });
 
-  // ── getEffectiveConfig ───────────────────────────────────────────────────
+  // ── getEffectiveConfig (project-centric) ────────────────────────────────
 
   describe("getEffectiveConfig", () => {
-    it("falls back to default config when no account is active", () => {
-      mockDefaultConfig({ replyStyle: "casual" });
+    it("reads from config.json and returns project info when present", () => {
+      mockDefaultConfig({
+        activeProject: "myapp",
+        projects: {
+          myapp: {
+            name: "MyApp",
+            description: "A cool app",
+            url: "https://myapp.com",
+            keywords: ["myapp", "saas"],
+          },
+        },
+        replyStyle: "thoughtful",
+      });
 
       const result = getEffectiveConfig();
 
-      expect(result.replyStyle).toBe("casual");
-      expect(result.nicheKeywords).toContain("indie dev");
+      expect(result.activeProject).toBe("myapp");
+      expect(result.projects?.myapp?.keywords).toEqual(["myapp", "saas"]);
+      expect(result.replyStyle).toBe("thoughtful");
     });
 
-    it("returns default config when no account is active and no config file exists", () => {
+    it("returns default config when no config file exists", () => {
       vi.mocked(existsSync).mockReturnValue(false);
 
       const result = getEffectiveConfig();
 
       expect(result.replyStyle).toBe("curious");
-    });
-
-    it("reads from account config when account is active", () => {
-      mockActiveAccount("work");
-
-      const result = getEffectiveConfig();
-
-      expect(result.nicheKeywords).toEqual(["keyword-work"]);
-      expect(result.replyStyle).toBe("curious");
-    });
-
-    it("merges account config with defaults", () => {
-      // Active account exists with partial config
-      vi.mocked(existsSync).mockImplementation((path: string) => {
-        if (path === ACTIVE_ACCOUNT_PATH) return true;
-        if (path === getAccountConfigPath("personal")) return true;
-        return false;
-      });
-      vi.mocked(readFileSync).mockImplementation((path: string) => {
-        if (path === ACTIVE_ACCOUNT_PATH) return "personal";
-        if (path === getAccountConfigPath("personal")) {
-          return JSON.stringify({ replyStyle: "supportive" });
-        }
-        return "{}";
-      });
-
-      const result = getEffectiveConfig();
-
-      expect(result.replyStyle).toBe("supportive");
-      // Falls back to default keywords since not in account config
       expect(result.nicheKeywords).toContain("indie dev");
     });
 
-    it("returns defaults when account config file is corrupt", () => {
+    it("returns defaults when config file is corrupt", () => {
       vi.mocked(existsSync).mockImplementation((path: string) => {
-        if (path === ACTIVE_ACCOUNT_PATH) return true;
-        if (path === getAccountConfigPath("broken")) return true;
+        if (path === CONFIG_PATH) return true;
         return false;
       });
-      vi.mocked(readFileSync).mockImplementation((path: string) => {
-        if (path === ACTIVE_ACCOUNT_PATH) return "broken";
-        if (path === getAccountConfigPath("broken")) {
-          throw new Error("parse error");
-        }
-        return "{}";
-      });
-
-      const result = getEffectiveConfig();
-
-      expect(result.replyStyle).toBe("curious");
-      expect(result.nicheKeywords).toContain("indie dev");
-    });
-
-    it("returns defaults when account directory exists but no config file", () => {
-      vi.mocked(existsSync).mockImplementation((path: string) => {
-        if (path === ACTIVE_ACCOUNT_PATH) return true;
-        // Account config file doesn't exist
-        return false;
-      });
-      vi.mocked(readFileSync).mockImplementation((path: string) => {
-        if (path === ACTIVE_ACCOUNT_PATH) return "new-account";
-        return "{}";
+      vi.mocked(readFileSync).mockImplementation(() => {
+        throw new Error("parse error");
       });
 
       const result = getEffectiveConfig();
@@ -271,158 +191,81 @@ describe("account switching", () => {
     });
   });
 
-  // ── updateEffectiveConfig ────────────────────────────────────────────────
+  // ── updateEffectiveConfig (project-centric) ─────────────────────────────
 
   describe("updateEffectiveConfig", () => {
-    it("writes to default config when no account is active", () => {
+    it("writes to config.json and merges project info", () => {
       mockDefaultConfig({ replyStyle: "casual" });
 
-      updateEffectiveConfig({ replyStyle: "thoughtful" });
+      updateEffectiveConfig({
+        activeProject: "myapp",
+        projects: {
+          myapp: {
+            name: "MyApp",
+            description: "A cool app",
+            url: "https://myapp.com",
+            keywords: ["saas"],
+          },
+        },
+      });
 
       expect(writeFileSync).toHaveBeenCalledWith(
         CONFIG_PATH,
-        expect.stringContaining("thoughtful"),
+        expect.stringContaining("MyApp"),
+        "utf-8",
+      );
+      expect(writeFileSync).toHaveBeenCalledWith(
+        CONFIG_PATH,
+        expect.stringContaining("myapp"),
         "utf-8",
       );
     });
 
-    it("writes to account config when account is active", () => {
-      mockActiveAccount("work");
+    it("preserves existing config when updating partially", () => {
+      mockDefaultConfig({
+        activeProject: "myapp",
+        projects: {
+          myapp: {
+            name: "MyApp",
+            description: "A cool app",
+            url: "https://myapp.com",
+            keywords: ["saas"],
+          },
+        },
+        replyStyle: "curious",
+      });
 
       updateEffectiveConfig({ replyStyle: "supportive" });
 
-      const expectedPath = getAccountConfigPath("work");
-      expect(writeFileSync).toHaveBeenCalledWith(
-        expectedPath,
-        expect.stringContaining("supportive"),
-        "utf-8",
-      );
-    });
-
-    it("merges with existing account config values", () => {
-      mockActiveAccount("work");
-
-      updateEffectiveConfig({ nicheKeywords: ["new-keyword"] });
-
       const writtenContent = vi.mocked(writeFileSync).mock.calls[0][1] as string;
       const parsed = JSON.parse(writtenContent);
-      // Should keep existing nicheKeywords and merge new ones
-      expect(parsed.nicheKeywords).toEqual(["new-keyword"]);
-      expect(parsed.replyStyle).toBe("curious");
-    });
-
-    it("creates account directory when it does not exist", () => {
-      // Active account set but account directory doesn't exist
-      vi.mocked(existsSync).mockImplementation((path: string) => {
-        if (path === ACTIVE_ACCOUNT_PATH) return true;
-        return false;
-      });
-      vi.mocked(readFileSync).mockImplementation((path: string) => {
-        if (path === ACTIVE_ACCOUNT_PATH) return "new-account";
-        return "{}";
-      });
-
-      updateEffectiveConfig({ nicheKeywords: ["dev"] });
-
-      expect(mkdirSync).toHaveBeenCalledWith(
-        getAccountDir("new-account"),
-        { recursive: true },
-      );
-      expect(writeFileSync).toHaveBeenCalled();
-    });
-  });
-
-  // ── Path helpers ─────────────────────────────────────────────────────────
-
-  describe("path helpers", () => {
-    it("getAccountDir returns correct path", () => {
-      const result = getAccountDir("personal");
-      expect(result).toBe(`${ACCOUNTS_DIR}/personal`);
-    });
-
-    it("getAccountConfigPath returns correct path", () => {
-      const result = getAccountConfigPath("work");
-      expect(result).toBe(`${ACCOUNTS_DIR}/work/config.json`);
-    });
-
-    it("ACTIVE_ACCOUNT_PATH is under CONFIG_DIR", () => {
-      expect(ACTIVE_ACCOUNT_PATH).toBe(join(CONFIG_DIR, "active_account"));
-    });
-  });
-
-  // ── Interaction: switch → effective config ───────────────────────────────
-
-  describe("switch then getEffectiveConfig", () => {
-    it("switch_account followed by getEffectiveConfig reads new account", () => {
-      // Step 1: No active account, default config exists
-      mockDefaultConfig({ replyStyle: "casual" });
-
-      // Step 2: Switch to "work"
-      vi.mocked(existsSync).mockReset();
-      vi.mocked(readFileSync).mockReset();
-      vi.mocked(writeFileSync).mockReset();
-
-      // Simulate setActiveAccount writing the file
-      vi.mocked(existsSync).mockImplementation((path: string) => {
-        if (path === ACTIVE_ACCOUNT_PATH) return true;
-        if (path === CONFIG_PATH) return true;
-        if (path === getAccountConfigPath("work")) return true;
-        return false;
-      });
-      vi.mocked(readFileSync).mockImplementation((path: string) => {
-        if (path === ACTIVE_ACCOUNT_PATH) return "work";
-        if (path === CONFIG_PATH) return JSON.stringify({ replyStyle: "casual" });
-        if (path === getAccountConfigPath("work")) {
-          return JSON.stringify({ nicheKeywords: ["work-specific"] });
-        }
-        return "{}";
-      });
-
-      const result = getEffectiveConfig();
-
-      // Should read from the "work" account config, not default
-      expect(result.nicheKeywords).toEqual(["work-specific"]);
+      expect(parsed.replyStyle).toBe("supportive");
+      expect(parsed.activeProject).toBe("myapp");
+      expect(parsed.projects.myapp.name).toBe("MyApp");
     });
   });
 
   // ── backward compat: getConfig unaffected ───────────────────────────────
 
   describe("backward compatibility", () => {
-    it("getConfig still reads from default config.json regardless of active account", () => {
-      // Default config exists
-      vi.mocked(existsSync).mockImplementation((path: string) => {
-        if (path === CONFIG_PATH) return true;
-        return false; // no active_account file
-      });
-      vi.mocked(readFileSync).mockImplementation((path: string) => {
-        if (path === CONFIG_PATH) {
-          return JSON.stringify({ replyStyle: "supportive" });
-        }
-        return "{}";
-      });
-
-      // Set active account
-      vi.mocked(existsSync).mockImplementation((path: string) => {
-        if (path === ACTIVE_ACCOUNT_PATH) return true;
-        if (path === CONFIG_PATH) return true;
-        if (path === getAccountConfigPath("personal")) return true;
-        return false;
-      });
-      vi.mocked(readFileSync).mockImplementation((path: string) => {
-        if (path === ACTIVE_ACCOUNT_PATH) return "personal";
-        if (path === CONFIG_PATH) {
-          return JSON.stringify({ replyStyle: "supportive" });
-        }
-        if (path === getAccountConfigPath("personal")) {
-          return JSON.stringify({ nicheKeywords: ["personal-keywords"] });
-        }
-        return "{}";
+    it("getConfig reads from config.json regardless of active account", () => {
+      mockDefaultConfig({
+        activeProject: "myapp",
+        projects: {
+          myapp: {
+            name: "MyApp",
+            description: "App desc",
+            url: "https://myapp.com",
+            keywords: ["myapp"],
+          },
+        },
+        replyStyle: "supportive",
       });
 
-      // getConfig should still read default config.json
       const result = getConfig();
 
       expect(result.replyStyle).toBe("supportive");
+      expect(result.activeProject).toBe("myapp");
     });
   });
 });

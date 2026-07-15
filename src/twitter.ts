@@ -22,17 +22,10 @@ export interface TweetData {
   };
   inReplyToTweetId?: string;
   conversationId?: string;
-  /** What source this tweet came from */
-  source: "timeline" | "mentions" | "search";
+  /** Source is always "search" in project-centric mode */
+  source: "search";
   /** Whether this tweet has been replied to (enriched by replyflow_list) */
   replied?: boolean;
-  /** Context chain (populated for mentions in reply chains) */
-  context?: TweetContext;
-}
-
-export interface TweetContext {
-  root: TweetData;
-  replies: TweetData[];
 }
 
 /**
@@ -172,75 +165,6 @@ function toTweetData(
   };
 }
 
-// ── getTimeline ──────────────────────────────────────────────────────────────
-
-/**
- * Fetch the user's Home Timeline (most recent ~20 tweets).
- */
-export function getTimeline(_config: Config): TweetData[] {
-  const result = runTwitter(["feed", "--json", "-n", "20"]);
-  if (!result.ok) return [];
-
-  const tweets = result.data as CliTweetData[];
-  return tweets.map((t) => toTweetData(t, "timeline"));
-}
-
-// ── getMentions ──────────────────────────────────────────────────────────────
-
-/**
- * Fetch @mentions for the authenticated user (most recent ~20).
- * Uses `twitter search --to <username>` since twitter-cli has no dedicated mentions command.
- */
-export function getMentions(_config: Config): TweetData[] {
-  const me = getMe();
-
-  const result = runTwitter([
-    "search", "--json", "-t", "latest", "-n", "20",
-    "--to", me.username,
-  ]);
-
-  if (!result.ok) return [];
-
-  const tweets = result.data as CliTweetData[];
-
-  // Filter only tweets that actually mention the user
-  const mentionRegex = new RegExp(`@${me.username}\\b`, "i");
-  return tweets
-    .filter((t) => mentionRegex.test(t.text))
-    .map((t) => toTweetData(t, "mentions"));
-}
-
-// ── getTweetContext ──────────────────────────────────────────────────────────
-
-/**
- * Build context for a given tweet using `twitter tweet <id>` which returns
- * the parent tweet + all replies in one response.
- */
-export function getTweetContext(
-  _config: Config,
-  tweetId: string,
-): TweetContext {
-  const result = runTwitter(["tweet", "--json", tweetId]);
-
-  if (!result.ok) {
-    throw new Error(`Failed to fetch tweet context for ${tweetId}`);
-  }
-
-  const tweets = result.data as CliTweetData[];
-
-  if (tweets.length === 0) {
-    throw new Error(`No data returned for tweet ${tweetId}`);
-  }
-
-  // First tweet is the root/conversation parent
-  const root = toTweetData(tweets[0], "search");
-
-  // Remaining are replies in the conversation
-  const replies = tweets.slice(1).map((t) => toTweetData(t, "mentions"));
-
-  return { root, replies };
-}
-
 // ── getTrendingPosts ─────────────────────────────────────────────────────────
 
 /**
@@ -279,15 +203,9 @@ export function getTrendingPosts(
 
 // ── Merge, dedup & sort ──────────────────────────────────────────────────────
 
-const INTERACTION_MAP: Record<string, number> = {
-  timeline: 1,
-  mentions: 3,
-  search: 1.5,
-};
-
 /**
- * Merge multiple sources of tweets, remove duplicates (by id),
- * and sort by "interaction count × source weight".
+ * Merge multiple arrays of tweets, remove duplicates (by id),
+ * and sort by interaction count descending.
  */
 export function mergeAndSort(...sources: TweetData[][]): TweetData[] {
   const seen = new Set<string>();
@@ -301,104 +219,68 @@ export function mergeAndSort(...sources: TweetData[][]): TweetData[] {
     }
   }
 
-  // Sort: interaction volume × source relevance
+  // Sort by interaction count descending
   merged.sort((a, b) => {
     const scoreA = interactionScore(a);
     const scoreB = interactionScore(b);
-    return scoreB - scoreA; // descending
+    return scoreB - scoreA;
   });
 
   return merged;
 }
 
 function interactionScore(tweet: TweetData): number {
-  const weight = INTERACTION_MAP[tweet.source] ?? 1;
   const metrics = tweet.publicMetrics;
-  if (!metrics) return weight;
-  const interactions =
+  if (!metrics) return 0;
+  return (
     metrics.retweetCount +
     metrics.replyCount +
     metrics.likeCount +
-    metrics.quoteCount;
-  return (interactions + 1) * weight;
+    metrics.quoteCount
+  );
+}
+
+// ── getTweetWithReplies ───────────────────────────────────────────────────────
+
+/**
+ * Fetch a tweet and its replies using `twitter tweet`.
+ * Returns an array of CliTweetData (index 0 = main tweet, rest = replies).
+ */
+export function getTweetWithReplies(tweetId: string): CliTweetData[] {
+  try {
+    const result = runTwitter(["tweet", "--json", "-n", "5", tweetId]);
+    if (!result.ok) return [];
+    return result.data as CliTweetData[];
+  } catch {
+    return [];
+  }
 }
 
 // ── list ─────────────────────────────────────────────────────────────────────
 
 /**
- * High-level: fetch all sources based on filter, return merged + sorted result.
+ * High-level: search for niche-relevant tweets using project keywords.
  *
- * @param filter  "all" | "mentions" | "timeline"
- * @returns      ListResult with tweets array + optional user info
+ * @param config       Effective config
+ * @param projectName  Optional project name (overrides activeProject)
+ * @returns            ListResult with tweets array + optional user info
  */
 export async function list(
   config: Config,
-  filter: "all" | "mentions" | "timeline",
+  projectName?: string,
 ): Promise<ListResult> {
   const result: ListResult = { tweets: [] };
 
   try {
-    const timeline: TweetData[] = [];
-    const mentions: TweetData[] = [];
-    const trending: TweetData[] = [];
+    // Resolve keywords: use specified project, or active project, or fallback
+    let keywords: string[] | undefined;
 
-    if (filter === "all" || filter === "timeline") {
-      try {
-        const tl = getTimeline(config);
-        timeline.push(...tl);
-      } catch {
-        // Timeline failed — try trending as fallback
-        try {
-          const tr = getTrendingPosts(config);
-          trending.push(...tr);
-        } catch {
-          // Both failed
-        }
-      }
+    if (projectName && config.projects?.[projectName]?.keywords) {
+      keywords = config.projects[projectName].keywords;
     }
 
-    if (filter === "all" || filter === "mentions") {
-      try {
-        const mn = getMentions(config);
-        mentions.push(...mn);
-      } catch {
-        // Mentions failed
-      }
-    }
-
-    // If no results from timeline/mentions, try trending as a last resort
-    if (
-      timeline.length === 0 &&
-      mentions.length === 0 &&
-      trending.length === 0
-    ) {
-      try {
-        const tr = getTrendingPosts(config);
-        trending.push(...tr);
-      } catch {
-        // Trending failed too
-      }
-    }
-
-    // Merge & sort
-    result.tweets = mergeAndSort(timeline, mentions, trending);
-
-    // Enrich mentions with context chain
-    if (
-      result.tweets.length > 0 &&
-      (filter === "all" || filter === "mentions")
-    ) {
-      const replyTweets = result.tweets.filter((t) => t.inReplyToTweetId);
-      const toEnrich = replyTweets.slice(0, 5); // limit to avoid excessive CLI calls
-      for (const tweet of toEnrich) {
-        try {
-          const ctx = getTweetContext(config, tweet.id);
-          tweet.context = ctx;
-        } catch {
-          // Context fetch failed — skip
-        }
-      }
-    }
+    const tweets = getTrendingPosts(config, keywords);
+    result.tweets = mergeAndSort(tweets);
 
     // Get user info
     try {

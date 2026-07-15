@@ -7,10 +7,13 @@ import { join } from "path";
 export interface HistoryEntry {
   id: number;
   tweetId: string;
+  conversationId?: string;
+  inReplyToTweetId?: string;
   text: string;
   style?: string;
   copiedAt: string;
   account: string;
+  status: "sent" | "replied" | "followed_up";
 }
 
 // ── Paths ────────────────────────────────────────────────────────────────────
@@ -59,16 +62,21 @@ export function appendHistory(
   tweetId?: string,
   style?: string,
   account = "default",
+  conversationId?: string,
+  inReplyToTweetId?: string,
 ): HistoryEntry {
   const entries = readAllEntries();
   const id = getNextId(entries);
   const entry: HistoryEntry = {
     id,
     tweetId: tweetId ?? "",
+    conversationId,
+    inReplyToTweetId,
     text,
     style,
     copiedAt: new Date().toISOString(),
     account,
+    status: "sent",
   };
   entries.push(entry);
   writeAllEntries(entries);
@@ -77,9 +85,13 @@ export function appendHistory(
 
 /**
  * Read history entries, sorted by most recent first.
- * Optionally filter by tweetId and limit count.
+ * Optionally filter by tweetId, status and limit count.
  */
-export function readHistory(tweetId?: string, limit = 20): HistoryEntry[] {
+export function readHistory(
+  tweetId?: string,
+  limit = 20,
+  status?: "sent" | "replied" | "followed_up",
+): HistoryEntry[] {
   let entries = readAllEntries();
 
   // Sort newest first
@@ -91,6 +103,10 @@ export function readHistory(tweetId?: string, limit = 20): HistoryEntry[] {
     entries = entries.filter((e) => e.tweetId === tweetId);
   }
 
+  if (status) {
+    entries = entries.filter((e) => e.status === status);
+  }
+
   return entries.slice(0, limit);
 }
 
@@ -100,4 +116,105 @@ export function readHistory(tweetId?: string, limit = 20): HistoryEntry[] {
 export function getRepliedTweetIds(): Set<string> {
   const entries = readAllEntries();
   return new Set(entries.map((e) => e.tweetId).filter(Boolean));
+}
+
+// ── Reply chain tracking ─────────────────────────────────────────────────────
+
+/**
+ * Check for new replies on tweets we've sent replies to.
+ *
+ * For each entry with status "sent", fetches the tweet thread via
+ * `twitter tweet <tweetId>` and checks if there are replies from
+ * users other than the authenticated user.
+ *
+ * @param getThread   Function that fetches a tweet thread by ID.
+ *                    Defaults to importing from twitter.ts.
+ *                    Made injectable for testability.
+ * @param myUserId    The authenticated user's Twitter ID (optional).
+ * @returns           Array of entries whose status changed to "replied".
+ */
+export function checkForReplies(
+  getThread?: (tweetId: string) => { authorId: string; replies: { authorId: string }[] } | null,
+  myUserId?: string,
+): HistoryEntry[] {
+  // Lazy import to avoid circular dependency at module level
+  const fetcher: NonNullable<typeof getThread> = getThread ?? ((tweetId: string) => {
+    try {
+      // Dynamic require to avoid top-level import issues
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { getTweetWithReplies } = require("./twitter.js");
+      const data = getTweetWithReplies(tweetId);
+      if (!data || data.length === 0) return null;
+      return {
+        authorId: data[0]?.author?.id ?? "",
+        replies: data.slice(1).map((r: { author?: { id: string } }) => ({
+          authorId: r.author?.id ?? "",
+        })),
+      };
+    } catch {
+      return null;
+    }
+  });
+
+  const entries = readAllEntries();
+  const sentEntries = entries.filter((e) => e.status === "sent" && e.tweetId);
+  const updated: HistoryEntry[] = [];
+
+  for (const entry of sentEntries) {
+    const thread = fetcher(entry.tweetId);
+    if (!thread) continue;
+
+    const originalAuthorId = thread.authorId;
+
+    // Check if any reply is from someone other than the original author and not us
+    const hasExternalReply = thread.replies.some(
+      (r) => r.authorId !== originalAuthorId && r.authorId !== (myUserId ?? "") && r.authorId !== "",
+    );
+
+    if (hasExternalReply) {
+      entry.status = "replied";
+      updated.push(entry);
+    }
+  }
+
+  if (updated.length > 0) {
+    writeAllEntries(entries);
+  }
+
+  return updated;
+}
+
+/**
+ * Get all entries that need follow-up (status is "replied").
+ */
+export function getFollowUpTweets(): HistoryEntry[] {
+  const entries = readAllEntries();
+  return entries
+    .filter((e) => e.status === "replied")
+    .sort((a, b) => new Date(b.copiedAt).getTime() - new Date(a.copiedAt).getTime());
+}
+
+/**
+ * Update the status of a history entry by ID.
+ * Returns the updated entry, or undefined if not found.
+ */
+export function updateEntryStatus(
+  id: number,
+  status: "sent" | "replied" | "followed_up",
+): HistoryEntry | undefined {
+  const entries = readAllEntries();
+  const entry = entries.find((e) => e.id === id);
+  if (!entry) return undefined;
+
+  entry.status = status;
+  writeAllEntries(entries);
+  return entry;
+}
+
+/**
+ * Mark a follow-up tweet as "followed_up" (already actioned).
+ * Convenience wrapper around updateEntryStatus.
+ */
+export function markAsFollowedUp(id: number): HistoryEntry | undefined {
+  return updateEntryStatus(id, "followed_up");
 }

@@ -12,8 +12,15 @@ import {
   setActiveAccount,
 } from "./config.js";
 import { list, resetClient } from "./twitter.js";
-import { appendHistory, readHistory, getRepliedTweetIds } from "./history.js";
-
+import {
+  appendHistory,
+  readHistory,
+  getRepliedTweetIds,
+  checkForReplies,
+  getFollowUpTweets,
+  updateEntryStatus,
+  markAsFollowedUp,
+} from "./history.js";
 // ── CLI entry ────────────────────────────────────────────────────────────────
 
 /**
@@ -28,10 +35,7 @@ async function main() {
   // ── Setup mode ───────────────────────────────────────────────────────
   if (args[0] === "setup") {
     const { runInteractiveSetup } = await import("./setup.js");
-    // Parse --account flag: `npx replyflow-mcp setup --account myaccount`
-    const accountIdx = args.indexOf("--account");
-    const account = accountIdx >= 0 && args[accountIdx + 1] ? args[accountIdx + 1] : undefined;
-    const ok = await runInteractiveSetup(account);
+    const ok = await runInteractiveSetup();
     process.exit(ok ? 0 : 1);
   }
 
@@ -43,7 +47,6 @@ async function main() {
     console.log("  Usage:");
     console.log("    npx replyflow-mcp                        Start MCP server (stdio)");
     console.log("    npx replyflow-mcp setup                  Run interactive configuration");
-    console.log("    npx replyflow-mcp setup --account NAME   Configure a specific account");
     console.log("    npx replyflow-mcp --help                 Show this help");
     console.log("");
     process.exit(0);
@@ -111,16 +114,15 @@ async function startServer() {
   server.tool(
     "replyflow_list",
     {
-      filter: z
-        .enum(["all", "mentions", "timeline"])
+      project: z
+        .string()
         .optional()
-        .default("all")
-        .describe("Filter tweets to retrieve (all=timeline+mentions+trending, mentions=@mentions only, timeline=home timeline + trending)"),
+        .describe("Project name to search for (overrides active project)"),
     },
     async (args) => {
       return withErrorHandling(async () => {
         const config = getEffectiveConfig();
-        const result = await list(config, args.filter);
+        const result = await list(config, args.project);
 
         // Mark tweets that have been replied to
         const repliedIds = getRepliedTweetIds();
@@ -156,6 +158,14 @@ async function startServer() {
         .string()
         .optional()
         .describe("ID of the tweet being replied to (recorded in history)"),
+      conversationId: z
+        .string()
+        .optional()
+        .describe("Conversation/thread ID for reply chain tracking"),
+      inReplyToTweetId: z
+        .string()
+        .optional()
+        .describe("ID of the tweet this reply is responding to (if different from tweetId)"),
       style: z
         .enum(STYLE_OPTIONS)
         .optional()
@@ -164,7 +174,14 @@ async function startServer() {
     async (args) => {
       return withErrorHandling(async () => {
         const account = getActiveAccount() || "default";
-        const entry = appendHistory(args.text, args.tweetId, args.style, account);
+        const entry = appendHistory(
+          args.text,
+          args.tweetId,
+          args.style,
+          account,
+          args.conversationId,
+          args.inReplyToTweetId,
+        );
         return {
           content: [
             {
@@ -173,6 +190,7 @@ async function startServer() {
                 copied: true,
                 length: args.text.length,
                 historyId: entry.id,
+                status: entry.status,
               }),
             },
           ],
@@ -186,10 +204,30 @@ async function startServer() {
   server.tool(
     "replyflow_update_config",
     {
+      project: z
+        .string()
+        .optional()
+        .describe("Project name to activate or configure"),
+      projectName: z
+        .string()
+        .optional()
+        .describe("Project display name (when creating/updating a project)"),
+      projectDescription: z
+        .string()
+        .optional()
+        .describe("Project description (when creating/updating a project)"),
+      projectUrl: z
+        .string()
+        .optional()
+        .describe("Project URL (when creating/updating a project)"),
+      projectKeywords: z
+        .array(z.string())
+        .optional()
+        .describe("Project keywords (when creating/updating a project)"),
       keywords: z
         .array(z.string())
         .optional()
-        .describe("Niche keywords for trending post search (replaces existing list)"),
+        .describe("Fallback niche keywords (replaces existing list)"),
       style: z
         .enum(STYLE_OPTIONS)
         .optional()
@@ -198,6 +236,32 @@ async function startServer() {
     async (args) => {
       return withErrorHandling(async () => {
         const partial: Record<string, unknown> = {};
+
+        // Handle project creation/update
+        if (args.project !== undefined) {
+          partial.activeProject = args.project;
+
+          // If project details provided, create/update the project
+          if (
+            args.projectName !== undefined ||
+            args.projectDescription !== undefined ||
+            args.projectUrl !== undefined ||
+            args.projectKeywords !== undefined
+          ) {
+            const currentCfg = getEffectiveConfig();
+            const currentProject = currentCfg.projects?.[args.project];
+
+            const projects = { ...(currentCfg.projects ?? {}) };
+            projects[args.project] = {
+              ...(currentProject ?? { name: args.project, description: "", url: "", keywords: [] }),
+              ...(args.projectName !== undefined ? { name: args.projectName } : {}),
+              ...(args.projectDescription !== undefined ? { description: args.projectDescription } : {}),
+              ...(args.projectUrl !== undefined ? { url: args.projectUrl } : {}),
+              ...(args.projectKeywords !== undefined ? { keywords: args.projectKeywords } : {}),
+            };
+            partial.projects = projects;
+          }
+        }
 
         if (args.keywords !== undefined) {
           partial.nicheKeywords = args.keywords;
@@ -214,7 +278,7 @@ async function startServer() {
                 type: "text",
                 text: JSON.stringify({
                   updated: false,
-                  reason: "No changes provided. Pass 'keywords' and/or 'style'.",
+                  reason: "No changes provided. Pass 'project', 'keywords', and/or 'style'.",
                 }),
               },
             ],
@@ -224,6 +288,10 @@ async function startServer() {
         updateEffectiveConfig(partial);
         const cfg = getEffectiveConfig();
 
+        const activeProject = cfg.activeProject
+          ? cfg.projects?.[cfg.activeProject]
+          : undefined;
+
         return {
           content: [
             {
@@ -231,6 +299,9 @@ async function startServer() {
               text: JSON.stringify({
                 updated: true,
                 config: {
+                  activeProject: cfg.activeProject ?? null,
+                  activeProjectInfo: activeProject ?? null,
+                  projects: cfg.projects ?? {},
                   nicheKeywords: cfg.nicheKeywords,
                   replyStyle: cfg.replyStyle,
                 },
@@ -253,6 +324,10 @@ async function startServer() {
         const activeAccount = getActiveAccount();
         const report = checkConfigIntegrity(cfg);
 
+        const activeProject = cfg.activeProject
+          ? cfg.projects?.[cfg.activeProject]
+          : undefined;
+
         return {
           content: [
             {
@@ -260,6 +335,9 @@ async function startServer() {
               text: JSON.stringify({
                 configured: report.ok,
                 activeAccount: activeAccount || "default",
+                activeProject: cfg.activeProject ?? null,
+                activeProjectInfo: activeProject ?? null,
+                projects: cfg.projects ?? {},
                 issues: {
                   critical: report.missing,
                   warnings: report.warnings,
@@ -324,18 +402,126 @@ async function startServer() {
         .optional()
         .default(20)
         .describe("Maximum number of entries to return (default: 20)"),
+      status: z
+        .enum(["sent", "replied", "followed_up"])
+        .optional()
+        .describe("Filter by reply chain status"),
     },
     async (args) => {
       return withErrorHandling(async () => {
-        const entries = readHistory(args.tweetId, args.limit ?? 20);
+        const entries = readHistory(args.tweetId, args.limit ?? 20, args.status);
         return {
           content: [
             {
               type: "text",
-              text: JSON.stringify({ entries }),
+              text: JSON.stringify({
+                entries,
+                totalCount: entries.length,
+              }),
             },
           ],
         };
+      });
+    },
+  );
+
+  // ── Tool: replyflow_followups ────────────────────────────────────────
+
+  server.tool(
+    "replyflow_followups",
+    {
+      markAsFollowedUp: z
+        .number()
+        .optional()
+        .describe("Entry ID to mark as followed up (optional, marks a specific entry as done)"),
+    },
+    async (args) => {
+      return withErrorHandling(async () => {
+        // If marking a specific entry as followed up
+        if (args.markAsFollowedUp !== undefined) {
+          const entry = markAsFollowedUp(args.markAsFollowedUp);
+          if (!entry) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({
+                    error: `Entry with id ${args.markAsFollowedUp} not found`,
+                  }),
+                },
+              ],
+              isError: true,
+            };
+          }
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  updated: true,
+                  entry: {
+                    id: entry.id,
+                    tweetId: entry.tweetId,
+                    status: entry.status,
+                  },
+                }),
+              },
+            ],
+          };
+        }
+
+        // Check for new replies on all sent entries
+        try {
+          const newlyReplied = checkForReplies();
+
+          // Get all follow-up tweets (status "replied")
+          const followUps = getFollowUpTweets();
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  newReplies: newlyReplied.length,
+                  newlyReplied: newlyReplied.map((e) => ({
+                    id: e.id,
+                    tweetId: e.tweetId,
+                    text: e.text.slice(0, 100),
+                    copiedAt: e.copiedAt,
+                  })),
+                  followUps: followUps.map((e) => ({
+                    id: e.id,
+                    tweetId: e.tweetId,
+                    conversationId: e.conversationId,
+                    inReplyToTweetId: e.inReplyToTweetId,
+                    text: e.text.slice(0, 100),
+                    copiedAt: e.copiedAt,
+                    status: e.status,
+                    account: e.account,
+                  })),
+                  totalFollowUps: followUps.length,
+                }),
+              },
+            ],
+          };
+        } catch (err) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  error: err instanceof Error ? err.message : String(err),
+                  followUps: getFollowUpTweets().map((e) => ({
+                    id: e.id,
+                    tweetId: e.tweetId,
+                    status: e.status,
+                    text: e.text.slice(0, 100),
+                  })),
+                }),
+              },
+            ],
+          };
+        }
       });
     },
   );

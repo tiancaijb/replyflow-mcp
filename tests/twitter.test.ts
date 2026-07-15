@@ -19,7 +19,7 @@ function makeTweet(
   return {
     id,
     text: `Tweet ${id}`,
-    source: "timeline",
+    source: "search",
     ...overrides,
   };
 }
@@ -28,20 +28,21 @@ function makeTweet(
 
 describe("twitter", () => {
   describe("mergeAndSort", () => {
-    it("merges multiple sources and deduplicates by id", () => {
-      const a = makeTweet("1", { source: "timeline" });
-      const b = makeTweet("2", { source: "mentions" });
-      const c = makeTweet("1", { source: "search" }); // duplicate of a
+    it("merges multiple arrays and deduplicates by id", () => {
+      const a = makeTweet("1");
+      const b = makeTweet("2");
+      const c = makeTweet("1"); // duplicate of a
 
       const result = mergeAndSort([a, c], [b]);
 
       expect(result).toHaveLength(2);
-      expect(result.map((t) => t.id)).toEqual(["2", "1"]);
+      // Both have no metrics so insertion order is preserved
+      // a (id:1) from first batch, then b (id:2) from second batch
+      expect(result.map((t) => t.id)).toEqual(["1", "2"]);
     });
 
-    it("sorts by interaction score descending", () => {
+    it("sorts by interaction count descending", () => {
       const low = makeTweet("1", {
-        source: "timeline",
         publicMetrics: {
           retweetCount: 5,
           replyCount: 2,
@@ -50,7 +51,6 @@ describe("twitter", () => {
         },
       });
       const high = makeTweet("2", {
-        source: "mentions",
         publicMetrics: {
           retweetCount: 50,
           replyCount: 20,
@@ -65,40 +65,12 @@ describe("twitter", () => {
       expect(result[1].id).toBe("1");
     });
 
-    it("gives weight to source type when metrics are equal", () => {
-      // Both have same metrics, but "mentions" (weight 3) > "timeline" (weight 1)
-      const timeline = makeTweet("1", {
-        source: "timeline",
-        publicMetrics: {
-          retweetCount: 0,
-          replyCount: 0,
-          likeCount: 0,
-          quoteCount: 0,
-        },
-      });
-      const mention = makeTweet("2", {
-        source: "mentions",
-        publicMetrics: {
-          retweetCount: 0,
-          replyCount: 0,
-          likeCount: 0,
-          quoteCount: 0,
-        },
-      });
+    it("preserves insertion order when metrics are equal or missing", () => {
+      const a = makeTweet("1");
+      const b = makeTweet("2");
 
-      const result = mergeAndSort([timeline, mention]);
-
-      expect(result[0].id).toBe("2"); // mentions first (weight 3 > 1)
-      expect(result[1].id).toBe("1");
-    });
-
-    it("uses source weight when metrics are undefined", () => {
-      const search = makeTweet("1", { source: "search" }); // weight 1.5
-      const timeline = makeTweet("2", { source: "timeline" }); // weight 1
-
-      const result = mergeAndSort([timeline, search]);
-
-      expect(result[0].id).toBe("1"); // search (1.5) > timeline (1)
+      const result = mergeAndSort([a, b]);
+      expect(result[0].id).toBe("1");
       expect(result[1].id).toBe("2");
     });
 
@@ -107,7 +79,7 @@ describe("twitter", () => {
       expect(result).toEqual([]);
     });
 
-    it("handles single source", () => {
+    it("handles single array", () => {
       const a = makeTweet("1");
       const b = makeTweet("2");
       const result = mergeAndSort([a, b]);
@@ -119,7 +91,6 @@ describe("twitter", () => {
         text: "Hello world",
         author: { id: "u1", name: "Alice", username: "alice" },
         createdAt: "2024-01-01T00:00:00Z",
-        source: "mentions",
         publicMetrics: {
           retweetCount: 10,
           replyCount: 5,
@@ -136,7 +107,7 @@ describe("twitter", () => {
         id: "1",
         text: "Hello world",
         author: { id: "u1", name: "Alice", username: "alice" },
-        source: "mentions",
+        source: "search",
         inReplyToTweetId: "0",
         conversationId: "conv1",
       });

@@ -11,8 +11,23 @@ export type ReplyStyle =
   | "thoughtful"
   | "auto";
 
+export interface Project {
+  /** Project display name */
+  name: string;
+  /** One-line description of the project */
+  description: string;
+  /** Project URL */
+  url: string;
+  /** Keywords for finding relevant discussions on Twitter */
+  keywords: string[];
+}
+
 export interface Config {
-  /** User's niche keywords for trending post search */
+  /** Currently active project name (key in `projects` map) */
+  activeProject?: string;
+  /** Map of project name to project configuration */
+  projects?: Record<string, Project>;
+  /** Fallback niche keywords (used when no active project has keywords) */
   nicheKeywords?: string[];
   /** Preferred reply style */
   replyStyle?: ReplyStyle;
@@ -36,20 +51,6 @@ export const CONFIG_PATH = join(CONFIG_DIR, "config.json");
 export const ACTIVE_ACCOUNT_PATH = join(CONFIG_DIR, "active_account");
 
 // ── Account helpers ──────────────────────────────────────────────────────────
-
-/**
- * Get the config directory path for a specific account.
- */
-export function getAccountDir(accountName: string): string {
-  return join(CONFIG_DIR, "accounts", accountName);
-}
-
-/**
- * Get the config file path for a specific account.
- */
-export function getAccountConfigPath(accountName: string): string {
-  return join(getAccountDir(accountName), "config.json");
-}
 
 /**
  * Read the currently active account name from ~/.replyflow/active_account.
@@ -79,63 +80,23 @@ export function setActiveAccount(account: string): void {
 }
 
 /**
- * Get the config for the currently active account.
+ * Get the effective config from ~/.replyflow/config.json.
+ * Falls back to defaults if the file doesn't exist or is corrupt.
  *
- * - If an account is active (active_account file exists with a name),
- *   reads from ~/.replyflow/accounts/<name>/config.json.
- * - If no account is active, falls back to ~/.replyflow/config.json (default).
- * - If neither exists, returns default config.
+ * Note: Config is no longer account-scoped. The active account is only
+ * used for twitter-cli authentication, not for config routing.
  */
 export function getEffectiveConfig(): Config {
-  const activeAccount = getActiveAccount();
-  if (activeAccount) {
-    const accountPath = getAccountConfigPath(activeAccount);
-    if (existsSync(accountPath)) {
-      try {
-        const raw = readFileSync(accountPath, "utf-8");
-        const parsed = JSON.parse(raw) as Partial<Config>;
-        return { ...DEFAULT_CONFIG, ...parsed };
-      } catch (err) {
-        console.error(
-          `[ReplyFlow] Warning: failed to parse ${accountPath}: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-    }
-    // Account directory exists but no config file yet — return defaults
-    return { ...DEFAULT_CONFIG };
-  }
   return getConfig();
 }
 
 /**
- * Update the config for the currently active account (or default if none active).
+ * Update the config in ~/.replyflow/config.json.
  *
- * - If an account is active, writes to ~/.replyflow/accounts/<name>/config.json.
- * - If no account is active, writes to ~/.replyflow/config.json.
+ * Note: Config is no longer account-scoped. All updates go to the single
+ * config file regardless of the active twitter account.
  */
 export function updateEffectiveConfig(partial: Partial<Config>): Config {
-  const activeAccount = getActiveAccount();
-  if (activeAccount) {
-    const accountDir = getAccountDir(activeAccount);
-    if (!existsSync(accountDir)) {
-      mkdirSync(accountDir, { recursive: true });
-    }
-    const accountPath = getAccountConfigPath(activeAccount);
-
-    let current: Config = { ...DEFAULT_CONFIG };
-    if (existsSync(accountPath)) {
-      try {
-        const raw = readFileSync(accountPath, "utf-8");
-        current = { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
-      } catch {
-        // Use defaults
-      }
-    }
-
-    const updated: Config = { ...current, ...partial };
-    writeFileSync(accountPath, JSON.stringify(updated, null, 2), "utf-8");
-    return updated;
-  }
   return updateConfig(partial);
 }
 
@@ -252,9 +213,18 @@ export function checkCredentials(
 }
 
 /**
- * Returns the user's niche keywords from config, or the defaults.
+ * Returns keywords to use for niche search.
+ *
+ * Priority:
+ * 1. Active project's keywords (if `activeProject` is set and the project exists)
+ * 2. Top-level `nicheKeywords` in config
+ * 3. Default keywords
  */
 export function getNicheKeywords(config: Config): string[] {
+  const activeProjectName = config.activeProject;
+  if (activeProjectName && config.projects?.[activeProjectName]?.keywords?.length) {
+    return config.projects[activeProjectName].keywords;
+  }
   if (config.nicheKeywords && config.nicheKeywords.length > 0) {
     return config.nicheKeywords;
   }

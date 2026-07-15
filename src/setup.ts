@@ -4,9 +4,10 @@
  * Usage: npx replyflow-mcp setup
  *
  * Walks the user through:
- *   1. Niche keywords for trending-post search
- *   2. Preferred reply style
- *   3. Save to config file
+ *   1. Project info (name, description, URL)
+ *   2. Project keywords for niche search
+ *   3. Preferred reply style
+ *   4. Save to config file
  *
  * No API keys needed — twitter-cli uses browser cookie auth.
  */
@@ -19,8 +20,6 @@ import {
   ReplyStyle,
   CONFIG_PATH,
   updateEffectiveConfig,
-  setActiveAccount,
-  getAccountConfigPath,
 } from "./config.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -54,8 +53,8 @@ function printWelcome(): void {
   console.log("  │                                                      │");
   console.log("  │   🚀 ReplyFlow – Interactive Setup                   │");
   console.log("  │                                                      │");
-  console.log("  │   This will configure your niche keywords and        │");
-  console.log("  │   preferred reply style in ~/.replyflow/config.json. │");
+  console.log("  │   ReplyFlow helps you find relevant Twitter          │");
+  console.log("  │   conversations and naturally promote your project.  │");
   console.log("  │                                                      │");
   console.log("  │   ⚡ No Twitter API keys needed — twitter-cli         │");
   console.log("  │   uses browser cookie authentication.                │");
@@ -69,12 +68,19 @@ function printWelcome(): void {
 }
 
 function printSaveSummary(config: Partial<Config>): void {
+  const projectName = config.activeProject ?? "(none)";
+  const project = config.projects?.[projectName];
   console.log("");
   console.log("  ╭──────────────────────────────────────────────────────╮");
   console.log("  │                                                      │");
   console.log("  │   📋 Configuration Summary                           │");
   console.log("  │                                                      │");
-  console.log(`  │     Keywords:        ${((config.nicheKeywords ?? []).join(", ") + "                    ").slice(0, 37)}│`);
+  console.log(`  │     Project:         ${(projectName + "                    ").slice(0, 37)}│`);
+  if (project) {
+    console.log(`  │     Description:     ${(project.description + "                    ").slice(0, 37)}│`);
+    console.log(`  │     URL:             ${(project.url + "                    ").slice(0, 37)}│`);
+    console.log(`  │     Keywords:        ${(project.keywords.join(", ") + "                    ").slice(0, 37)}│`);
+  }
   console.log(`  │     Reply Style:     ${(config.replyStyle ?? "curious" + "                    ").slice(0, 37)}│`);
   console.log("  │                                                      │");
   console.log("  ╰──────────────────────────────────────────────────────╯");
@@ -84,12 +90,59 @@ function printSaveSummary(config: Partial<Config>): void {
 // ── Interactive Steps ────────────────────────────────────────────────────────
 
 /**
+ * Ask for project name.
+ */
+async function stepProjectName(rl: ReadlineInterface): Promise<string> {
+  console.log("");
+  console.log("  ── Step 1: Project Name ───────────────────────────────────────");
+  console.log("");
+  console.log("  What's your project called? (e.g. 'ReplyFlow', 'My SaaS')");
+  console.log("  This is used to identify the project in your config.");
+  console.log("");
+
+  return await ask(rl, "  Project name: ");
+}
+
+/**
+ * Ask for project description.
+ */
+async function stepProjectDescription(
+  rl: ReadlineInterface,
+  projectName: string,
+): Promise<string> {
+  console.log("");
+  console.log("  ── Step 2: Project Description ────────────────────────────────");
+  console.log("");
+  console.log(`  Describe ${projectName} in one line.`);
+  console.log("  (e.g. 'AI-powered code review for teams', 'Twitter reply manager')");
+  console.log("");
+
+  return await ask(rl, "  Description: ");
+}
+
+/**
+ * Ask for project URL.
+ */
+async function stepProjectUrl(
+  rl: ReadlineInterface,
+  projectName: string,
+): Promise<string> {
+  console.log("");
+  console.log("  ── Step 3: Project URL ────────────────────────────────────────");
+  console.log("");
+  console.log(`  What's the URL for ${projectName}?`);
+  console.log("");
+
+  return await ask(rl, "  URL: ");
+}
+
+/**
  * Ask for niche keywords.
  */
 async function stepKeywords(rl: ReadlineInterface): Promise<string[]> {
   const DEFAULT = "indie dev, saas, build in public, coding, solopreneur";
   console.log("");
-  console.log("  ── Step 1: Niche Keywords ────────────────────────────────────");
+  console.log("  ── Step 4: Keywords for Topic Search ───────────────────────────");
   console.log("");
   console.log("  These keywords are used to find relevant tweets to reply to.");
   console.log("  Separate multiple keywords with commas.");
@@ -115,7 +168,7 @@ async function stepReplyStyle(rl: ReadlineInterface): Promise<ReplyStyle> {
   ];
 
   console.log("");
-  console.log("  ── Step 2: Reply Style ───────────────────────────────────────");
+  console.log("  ── Step 5: Reply Style ─────────────────────────────────────────");
   console.log("");
   console.log("  How would you like your replies to sound by default?");
   console.log("");
@@ -134,34 +187,45 @@ async function stepReplyStyle(rl: ReadlineInterface): Promise<ReplyStyle> {
 
 /**
  * Run the full interactive setup.
- *
- * @param account Optional account name (from `--account` flag).
- *   If provided, switches to this account before configuring.
- *   Returns `true` if config was saved, `false` if cancelled.
+ * Returns `true` if config was saved, `false` if cancelled.
  */
-export async function runInteractiveSetup(account?: string): Promise<boolean> {
+export async function runInteractiveSetup(): Promise<boolean> {
   const rl = createReader();
 
   try {
-    // If an account is specified, switch to it before setup
-    if (account) {
-      setActiveAccount(account);
-      console.log("");
-      console.log(`  Configuring account: ${account}`);
-      console.log("");
-    }
-
     printWelcome();
 
-    // Step 1: Keywords
+    // Step 1: Project name
+    const projectName = await stepProjectName(rl);
+    if (!projectName) {
+      console.log("");
+      console.log("  ❌ Project name is required. Setup cancelled.");
+      return false;
+    }
+
+    // Step 2: Project description
+    const projectDescription = await stepProjectDescription(rl, projectName);
+
+    // Step 3: Project URL
+    const projectUrl = await stepProjectUrl(rl, projectName);
+
+    // Step 4: Keywords
     const keywords = await stepKeywords(rl);
 
-    // Step 2: Reply style
+    // Step 5: Reply style
     const style = await stepReplyStyle(rl);
 
     // ── Build config ──────────────────────────────────────────────────
     const config: Partial<Config> = {
-      nicheKeywords: keywords,
+      activeProject: projectName,
+      projects: {
+        [projectName]: {
+          name: projectName,
+          description: projectDescription,
+          url: projectUrl,
+          keywords,
+        },
+      },
       replyStyle: style,
     };
 
@@ -177,8 +241,7 @@ export async function runInteractiveSetup(account?: string): Promise<boolean> {
 
     updateEffectiveConfig(config);
     console.log("");
-    const configPath = account ? getAccountConfigPath(account) : CONFIG_PATH;
-    console.log(`  ✅  Configuration saved to ${configPath}`);
+    console.log(`  ✅  Configuration saved to ${CONFIG_PATH}`);
     console.log("");
     console.log("  You can now start the MCP server:");
     console.log("");
