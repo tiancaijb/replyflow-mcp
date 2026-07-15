@@ -9,6 +9,7 @@ import {
   resolveTwitterApiKey,
   resolveTwitterApiSecret,
 } from "./config.js";
+import { list } from "./twitter.js";
 
 // ── Server init ──────────────────────────────────────────────────────────────
 
@@ -72,24 +73,22 @@ server.tool(
       .enum(["all", "mentions", "timeline"])
       .optional()
       .default("all")
-      .describe("Filter tweets to retrieve"),
+      .describe("Filter tweets to retrieve (all=timeline+mentions+trending, mentions=@mentions only, timeline=home timeline + trending)"),
   },
   async (args) => {
     return withErrorHandling(async () => {
       const config = getConfig();
+      // Resolve credentials early — will fail fast with helpful message
       resolveTwitterApiKey(config);
       resolveTwitterApiSecret(config);
 
-      // TODO (MVP+): Connect to Twitter API v2 and fetch real tweets
-      //   - mentions: GET /2/users/:id/mentions
-      //   - timeline: GET /2/users/:id/timelines/reverse_chronological
-      //   - all: union of both
+      const result = await list(config, args.filter);
 
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify({ tweets: [] }),
+            text: JSON.stringify(result),
           },
         ],
       };

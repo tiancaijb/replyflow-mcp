@@ -13,7 +13,12 @@
     "prepublishOnly": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["mcp", "twitter", "reply", "independent-developer"],
+  "keywords": [
+    "mcp",
+    "twitter",
+    "reply",
+    "independent-developer"
+  ],
   "author": "",
   "license": "ISC",
   "files": [
@@ -22,6 +27,7 @@
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "twitter-api-v2": "^1.29.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

@@ -5,10 +5,14 @@ import { join } from "path";
 // ── Config Type ──────────────────────────────────────────────────────────────
 
 export interface Config {
-  /** Twitter API Key (Essential / Free tier) */
+  /** Twitter API Key (Consumer Key, Essential / Free tier) */
   twitterApiKey?: string;
-  /** Twitter API Secret */
+  /** Twitter API Secret (Consumer Secret) */
   twitterApiSecret?: string;
+  /** Twitter Access Token (OAuth 1.0a user context) */
+  twitterAccessToken?: string;
+  /** Twitter Access Token Secret (OAuth 1.0a user context) */
+  twitterAccessTokenSecret?: string;
   /** User preference: reply style */
   preferredStyle?: "casual" | "helpful" | "professional";
 }
@@ -97,6 +101,26 @@ export function resolveTwitterApiSecret(config: Config): string {
 }
 
 /**
+ * Returns the Twitter Access Token from env var or config file.
+ * Env vars take precedence. Returns undefined if not set (optional).
+ */
+export function resolveTwitterAccessToken(config: Config): string | undefined {
+  const env = process.env.TWITTER_ACCESS_TOKEN;
+  if (env) return env;
+  return config.twitterAccessToken;
+}
+
+/**
+ * Returns the Twitter Access Token Secret from env var or config file.
+ * Env vars take precedence. Returns undefined if not set (optional).
+ */
+export function resolveTwitterAccessTokenSecret(config: Config): string | undefined {
+  const env = process.env.TWITTER_ACCESS_TOKEN_SECRET;
+  if (env) return env;
+  return config.twitterAccessTokenSecret;
+}
+
+/**
  * Check whether the user has provided enough credential info to operate.
  * Prints a friendly banner if nothing is configured yet.
  */
@@ -123,6 +147,10 @@ export function checkCredentials(config: Config): boolean {
     console.error('  │     "twitterApiKey": "your_key",                     │');
     console.error('  │     "twitterApiSecret": "your_secret"                │');
     console.error("  │   }                                                  │");
+    console.error("  │                                                      │");
+    console.error("  │   For timeline & mentions, also set:                 │");
+    console.error("  │     TWITTER_ACCESS_TOKEN                             │");
+    console.error("  │     TWITTER_ACCESS_TOKEN_SECRET                      │");
     console.error("  │                                                      │");
     console.error("  ╰──────────────────────────────────────────────────────╯");
     console.error("");
