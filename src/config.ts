@@ -4,6 +4,8 @@ import { join } from "path";
 
 // ── Config Type ──────────────────────────────────────────────────────────────
 
+export type ReplyStyle = "casual" | "curious" | "supportive" | "thoughtful" | "auto";
+
 export interface Config {
   /** Twitter API Key (Consumer Key, Essential / Free tier) */
   twitterApiKey?: string;
@@ -13,12 +15,16 @@ export interface Config {
   twitterAccessToken?: string;
   /** Twitter Access Token Secret (OAuth 1.0a user context) */
   twitterAccessTokenSecret?: string;
+  /** Anthropic API Key (for reply generation via Claude) */
+  anthropicApiKey?: string;
+  /** OpenAI API Key (fallback for reply generation) */
+  openaiApiKey?: string;
   /** User preference: reply style */
-  preferredStyle?: "casual" | "helpful" | "professional";
+  preferredStyle?: ReplyStyle;
 }
 
 const DEFAULT_CONFIG: Config = {
-  preferredStyle: "casual",
+  preferredStyle: "curious",
 };
 
 // ── Paths ────────────────────────────────────────────────────────────────────
@@ -121,16 +127,40 @@ export function resolveTwitterAccessTokenSecret(config: Config): string | undefi
 }
 
 /**
+ * Returns the Anthropic API key from env var or config file.
+ * Env vars take precedence over config file.
+ */
+export function resolveAnthropicApiKey(config: Config): string | undefined {
+  const env = process.env.ANTHROPIC_API_KEY;
+  if (env) return env;
+  return config.anthropicApiKey;
+}
+
+/**
+ * Returns the OpenAI API key from env var or config file.
+ * Env vars take precedence over config file.
+ */
+export function resolveOpenAiApiKey(config: Config): string | undefined {
+  const env = process.env.OPENAI_API_KEY;
+  if (env) return env;
+  return config.openaiApiKey;
+}
+
+/**
  * Check whether the user has provided enough credential info to operate.
  * Prints a friendly banner if nothing is configured yet.
  */
 export function checkCredentials(config: Config): boolean {
-  const hasEnvKey = !!process.env.TWITTER_API_KEY;
-  const hasEnvSecret = !!process.env.TWITTER_API_SECRET;
-  const hasConfigKey = !!config.twitterApiKey;
-  const hasConfigSecret = !!config.twitterApiSecret;
+  const hasTwitterKey = !!(
+    resolveTwitterApiKey(config) &&
+    resolveTwitterApiSecret(config)
+  );
+  const hasLlmKey = !!(
+    resolveAnthropicApiKey(config) ||
+    resolveOpenAiApiKey(config)
+  );
 
-  const ok = (hasEnvKey && hasEnvSecret) || (hasConfigKey && hasConfigSecret);
+  const ok = hasTwitterKey;
 
   if (!ok) {
     console.error("");
@@ -154,6 +184,10 @@ export function checkCredentials(config: Config): boolean {
     console.error("  │                                                      │");
     console.error("  ╰──────────────────────────────────────────────────────╯");
     console.error("");
+  }
+
+  if (!hasLlmKey) {
+    console.error("[ReplyFlow] No LLM API key found — replyflow_generate will fail until ANTHROPIC_API_KEY or OPENAI_API_KEY is set.");
   }
 
   return ok;

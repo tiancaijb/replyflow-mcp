@@ -8,8 +8,10 @@ import {
   checkCredentials,
   resolveTwitterApiKey,
   resolveTwitterApiSecret,
+  ReplyStyle,
 } from "./config.js";
 import { list } from "./twitter.js";
+import { generateReply } from "./generate.js";
 
 // ── Server init ──────────────────────────────────────────────────────────────
 
@@ -98,14 +100,16 @@ server.tool(
 
 // ── Tool: replyflow_generate ─────────────────────────────────────────────────
 
+const STYLE_OPTIONS = ["casual", "curious", "supportive", "thoughtful", "auto"] as const;
+
 server.tool(
   "replyflow_generate",
   {
     tweetId: z.string().describe("ID of the tweet to reply to"),
     style: z
-      .enum(["casual", "helpful", "professional"])
+      .enum(STYLE_OPTIONS)
       .optional()
-      .describe("Reply style"),
+      .describe("Reply style (default: curious, auto = AI infers from post tone)"),
   },
   async (args) => {
     return withErrorHandling(async () => {
@@ -113,40 +117,18 @@ server.tool(
       resolveTwitterApiKey(config);
       resolveTwitterApiSecret(config);
 
-      // TODO (MVP+): Fetch tweet context via Twitter API v2, then call LLM
-      //   to generate 2-3 reply drafts per the user's style preference.
+      const style: ReplyStyle =
+        (args.style as ReplyStyle) ??
+        (config.preferredStyle as ReplyStyle) ??
+        "curious";
 
-      const style = args.style ?? config.preferredStyle ?? "casual";
-
-      const DRAFTS: Record<string, string[]> = {
-        casual: [
-          `Interesting take! I've been going back and forth on this too.`,
-          `Oh nice, love seeing real numbers instead of just theory.`,
-          `Curious — what made you decide to go with this approach?`,
-        ],
-        helpful: [
-          `Great point! One thing that helped me was keeping a daily log of changes. Worth trying!`,
-          `If you haven't already, consider adding a simple validation step — catches edge cases early.`,
-          `I wrote about a similar challenge here: [link]. The key insight was separating concerns early.`,
-        ],
-        professional: [
-          `Insightful analysis. The data clearly supports the thesis that incremental adoption yields better outcomes.`,
-          `I'd add that team alignment on the core metrics is a prerequisite for this approach to work.`,
-          `Appreciate you sharing these findings. Have you considered the implications for resource allocation?`,
-        ],
-      };
-
-      const drafts = DRAFTS[style] ?? DRAFTS.casual;
+      const result = await generateReply(config, args.tweetId, style);
 
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify({
-              tweetId: args.tweetId,
-              style,
-              drafts,
-            }),
+            text: JSON.stringify(result),
           },
         ],
       };
