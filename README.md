@@ -7,11 +7,13 @@
 
 ReplyFlow 是一个 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) Server，提供多个 tool 帮你管理 Twitter 回复。任何支持 MCP 的 AI agent（Cursor、Claude Code、Windsurf、pi-agent）都能调用。
 
+**后端使用 [twitter-cli](https://github.com/tiancaijb/twitter-cli)（Python）**，通过浏览器 Cookie 认证，无需 Twitter API Key，不受 API 配额限制。
+
 ## 功能
 
 ### replyflow_list — 拉今天值得回的帖子
 
-合并三个来源：Timeline（需 OAuth） + @mentions（需 OAuth） + Niche Search（按关键词搜索）。去重、按互动量排序，已回复的帖子标记 `replied: true`。
+合并三个来源：Timeline + @mentions + Niche Search（按关键词搜索）。去重、按互动量排序，已回复的帖子标记 `replied: true`。
 
 | 参数 | 类型 | 默认 | 说明 |
 |------|------|------|------|
@@ -49,11 +51,29 @@ ReplyFlow 是一个 [MCP (Model Context Protocol)](https://modelcontextprotocol.
 |------|------|------|
 | `account` | `string` | 账号名称（如 `"personal"`、`"work"`） |
 
-每个账号独立配置（API Key / OAuth / Keywords / Style），存储在 `~/.replyflow/accounts/<name>/config.json`。
+每个账号独立配置（Keywords / Style），存储在 `~/.replyflow/accounts/<name>/config.json`。
 
 ## 快速开始
 
-### 安装
+### 前置条件
+
+安装 [twitter-cli](https://github.com/tiancaijb/twitter-cli)（Python 工具，使用浏览器 Cookie 认证）：
+
+```bash
+pip3 install twitter-cli
+
+# 首次认证（会在浏览器打开 Twitter 授权页面）
+twitter status
+```
+
+确认认证成功：
+
+```bash
+twitter whoami
+# 应显示你的 Twitter 用户信息
+```
+
+### 安装 ReplyFlow
 
 ```bash
 npm install -g replyflow-mcp
@@ -68,50 +88,33 @@ npx replyflow-mcp --help
 ### 配置
 
 ```bash
-# 交互式配置
+# 交互式配置（关键词 + 回复风格）
 npx replyflow-mcp setup
 
 # 配置特定账号
 npx replyflow-mcp setup --account myaccount
 ```
 
-这会引导你完成：
-1. **Twitter API Key / Secret** — 从 [Twitter Developer Portal](https://developer.twitter.com/en/portal/dashboard) 获取
-2. **OAuth 2.0 PKCE（推荐）** — 授权读取 timeline 和 @mentions
-3. **Niche 关键词** — 搜索相关帖子的关键词
-4. **回复风格** — Curious（默认）/ Casual / Supportive / Thoughtful / Auto
-
 配置保存在 `~/.replyflow/config.json`（默认）或 `~/.replyflow/accounts/<name>/config.json`（多账号）。
-
-### 环境变量
-
-| 变量 | 必需 | 说明 |
-|------|------|------|
-| `TWITTER_API_KEY` | 是 | Twitter Consumer Key |
-| `TWITTER_API_SECRET` | 是 | Twitter Consumer Secret |
-| `TWITTER_ACCESS_TOKEN` | 否 | OAuth 1.0a 用户 Token |
-| `TWITTER_ACCESS_TOKEN_SECRET` | 否 | OAuth 1.0a 用户 Token Secret |
 
 ## MCP 客户端配置
 
-### Cursor / Claude Code / Windsurf
+### Cursor / Claude Code / Windsurf / pi-agent
 
 ```json
 {
   "mcpServers": {
     "replyflow": {
       "command": "npx",
-      "args": ["replyflow-mcp"],
-      "env": {
-        "TWITTER_API_KEY": "your_key",
-        "TWITTER_API_SECRET": "your_secret"
-      }
+      "args": ["replyflow-mcp"]
     }
   }
 }
 ```
 
 Cursor 编辑 `~/.cursor/mcp.json`，Claude Code 编辑 `~/.claude/mcp.json`。
+
+> ⚡ **无需任何环境变量** — twitter-cli 使用浏览器 Cookie 认证。
 
 ## CLI 命令
 
@@ -148,8 +151,8 @@ replyflow-mcp/
 ├── src/
 │   ├── index.ts        # MCP Server 入口 + 6 个 tool 定义
 │   ├── config.ts       # 配置管理 + 多账号支持
-│   ├── setup.ts        # 交互式配置流程（含 OAuth 2.0 PKCE）
-│   ├── twitter.ts      # Twitter API 封装
+│   ├── setup.ts        # 交互式配置流程
+│   ├── twitter.ts      # twitter-cli 封装
 │   └── history.ts      # 回复历史记录
 ├── tests/              # Vitest 测试
 ├── scratch/            # 设计文档和 tickets

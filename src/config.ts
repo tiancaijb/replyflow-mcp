@@ -4,36 +4,29 @@ import { join } from "path";
 
 // ── Config Type ──────────────────────────────────────────────────────────────
 
-export type ReplyStyle = "casual" | "curious" | "supportive" | "thoughtful" | "auto";
+export type ReplyStyle =
+  | "casual"
+  | "curious"
+  | "supportive"
+  | "thoughtful"
+  | "auto";
 
 export interface Config {
-  /** Twitter API Key (Consumer Key, Essential / Free tier) */
-  twitterApiKey?: string;
-  /** Twitter API Secret (Consumer Secret) */
-  twitterApiSecret?: string;
-  /** Twitter Access Token (OAuth 1.0a user context) */
-  twitterAccessToken?: string;
-  /** Twitter Access Token Secret (OAuth 1.0a user context) */
-  twitterAccessTokenSecret?: string;
-  /** User preference: reply style */
-  preferredStyle?: ReplyStyle;
-  /** OAuth 2.0 Client ID (for PKCE flow) */
-  oauth2ClientId?: string;
-  /** OAuth 2.0 Access Token (from PKCE, used for user-context API calls) */
-  oauth2AccessToken?: string;
-  /** OAuth 2.0 Refresh Token (with offline.access scope) */
-  oauth2RefreshToken?: string;
-  /** ISO timestamp when the access token expires */
-  oauth2TokenExpiresAt?: string;
   /** User's niche keywords for trending post search */
   nicheKeywords?: string[];
-  /** Preferred reply style (overrides preferredStyle for clarity in setup) */
+  /** Preferred reply style */
   replyStyle?: ReplyStyle;
 }
 
 const DEFAULT_CONFIG: Config = {
-  preferredStyle: "curious",
-  nicheKeywords: ["indie dev", "saas", "build in public", "coding", "solopreneur"],
+  replyStyle: "curious",
+  nicheKeywords: [
+    "indie dev",
+    "saas",
+    "build in public",
+    "coding",
+    "solopreneur",
+  ],
 };
 
 // ── Paths ────────────────────────────────────────────────────────────────────
@@ -151,7 +144,6 @@ export function updateEffectiveConfig(partial: Partial<Config>): Config {
 /**
  * Read config from ~/.replyflow/config.json.
  * If the file doesn't exist, returns the default config (does not throw).
- * Env vars are NOT merged here — callers should use resolveTwitterApiKey/Secret.
  *
  * Note: For account-aware config reading, use getEffectiveConfig() instead.
  */
@@ -200,133 +192,29 @@ export interface ConfigIntegrityReport {
 /**
  * Check config completeness without printing anything.
  * Returns a report of missing / warning fields.
+ *
+ * With twitter-cli backend, no API keys are needed —
+ * auth is handled by browser cookies.
  */
-export function checkConfigIntegrity(config: Config): ConfigIntegrityReport {
+export function checkConfigIntegrity(_config: Config): ConfigIntegrityReport {
   const missing: string[] = [];
   const warnings: string[] = [];
 
-  // At least one app-credential method must be present
-  const hasApiCreds =
-    !!(config.twitterApiKey || process.env.TWITTER_API_KEY) &&
-    !!(config.twitterApiSecret || process.env.TWITTER_API_SECRET);
+  // twitter-cli uses cookie-based auth, no API keys required.
+  // If the CLI isn't installed or auth fails, tools will error at runtime
+  // with a clear message.
 
-  if (!hasApiCreds) {
-    missing.push(
-      "Twitter API Key + API Secret – set TWITTER_API_KEY + TWITTER_API_SECRET env vars, " +
-        "or add 'twitterApiKey' + 'twitterApiSecret' to your config file",
-    );
-  }
-
-  // OAuth 2.0 user token or OAuth 1.0a access tokens for user-context endpoints
-  const hasUserAuth =
-    !!(config.oauth2AccessToken) ||
-    !!(
-      config.twitterAccessToken || process.env.TWITTER_ACCESS_TOKEN
-    );
-
-  if (!hasUserAuth) {
-    warnings.push(
-      "No user-context auth token found – timeline & mentions will fall back to app-only search. " +
-        "Run 'npx replyflow-mcp setup' to set up OAuth 2.0.",
-    );
-  }
-
-  return { ok: missing.length === 0, missing, warnings };
-}
-
-// ── Environment helpers ─────────────────────────────────────────────────────
-
-/**
- * Returns the Twitter API key from env var or config file.
- * Env vars take precedence over config file.
- * Throws if neither is set.
- */
-export function resolveTwitterApiKey(config: Config): string {
-  const env = process.env.TWITTER_API_KEY;
-  if (env) return env;
-
-  if (config.twitterApiKey) return config.twitterApiKey;
-
-  throw new Error(
-    "Twitter API key not found. Set TWITTER_API_KEY environment variable " +
-      "or add 'twitterApiKey' to your config file",
-  );
-}
-
-/**
- * Returns the Twitter API secret from env var or config file.
- * Env vars take precedence over config file.
- * Throws if neither is set.
- */
-export function resolveTwitterApiSecret(config: Config): string {
-  const env = process.env.TWITTER_API_SECRET;
-  if (env) return env;
-
-  if (config.twitterApiSecret) return config.twitterApiSecret;
-
-  throw new Error(
-    "Twitter API secret not found. Set TWITTER_API_SECRET environment variable " +
-      "or add 'twitterApiSecret' to your config file",
-  );
-}
-
-/**
- * Returns the Twitter Access Token from env var or config file.
- * Env vars take precedence. Returns undefined if not set (optional).
- */
-export function resolveTwitterAccessToken(config: Config): string | undefined {
-  const env = process.env.TWITTER_ACCESS_TOKEN;
-  if (env) return env;
-  return config.twitterAccessToken;
-}
-
-/**
- * Returns the Twitter Access Token Secret from env var or config file.
- * Env vars take precedence. Returns undefined if not set (optional).
- */
-export function resolveTwitterAccessTokenSecret(config: Config): string | undefined {
-  const env = process.env.TWITTER_ACCESS_TOKEN_SECRET;
-  if (env) return env;
-  return config.twitterAccessTokenSecret;
-}
-
-/**
-/**
- * Returns the OAuth 2.0 Client ID from env var or config file.
- * Env vars take precedence.
- */
-export function resolveOAuth2ClientId(config: Config): string | undefined {
-  const env = process.env.TWITTER_OAUTH2_CLIENT_ID;
-  if (env) return env;
-  return config.oauth2ClientId;
-}
-
-/**
- * Returns the OAuth 2.0 access token from config (no env var override).
- */
-export function resolveOAuth2AccessToken(config: Config): string | undefined {
-  return config.oauth2AccessToken;
-}
-
-/**
- * Returns the OAuth 2.0 refresh token from config (no env var override).
- */
-export function resolveOAuth2RefreshToken(config: Config): string | undefined {
-  return config.oauth2RefreshToken;
-}
-
-/**
- * Returns the OAuth 2.0 token expiry timestamp from config.
- */
-export function resolveOAuth2TokenExpiresAt(config: Config): string | undefined {
-  return config.oauth2TokenExpiresAt;
+  return { ok: true, missing, warnings };
 }
 
 /**
  * Check whether the user has provided enough credential info to operate.
- * Prints a friendly banner if nothing is configured yet.
+ * Prints a friendly message if nothing is configured yet.
  */
-export function checkCredentials(config: Config, integrity?: ConfigIntegrityReport): boolean {
+export function checkCredentials(
+  config: Config,
+  integrity?: ConfigIntegrityReport,
+): boolean {
   const report = integrity ?? checkConfigIntegrity(config);
 
   if (!report.ok || report.warnings.length > 0) {
@@ -354,7 +242,7 @@ export function checkCredentials(config: Config, integrity?: ConfigIntegrityRepo
 
     console.error("  │                                                      │");
     console.error("  │   Run 'npx replyflow-mcp setup' for interactive      │");
-    console.error("  │   configuration or set env variables.                │");
+    console.error("  │   configuration.                                     │");
     console.error("  │                                                      │");
     console.error("  ╰──────────────────────────────────────────────────────╯");
     console.error("");
@@ -372,5 +260,3 @@ export function getNicheKeywords(config: Config): string[] {
   }
   return DEFAULT_CONFIG.nicheKeywords!;
 }
-
-

@@ -7,8 +7,6 @@ import {
   getEffectiveConfig,
   checkConfigIntegrity,
   checkCredentials,
-  resolveTwitterApiKey,
-  resolveTwitterApiSecret,
   updateEffectiveConfig,
   getActiveAccount,
   setActiveAccount,
@@ -122,9 +120,6 @@ async function startServer() {
     async (args) => {
       return withErrorHandling(async () => {
         const config = getEffectiveConfig();
-        resolveTwitterApiKey(config);
-        resolveTwitterApiSecret(config);
-
         const result = await list(config, args.filter);
 
         // Mark tweets that have been replied to
@@ -270,11 +265,9 @@ async function startServer() {
                   warnings: report.warnings,
                 },
                 config: {
-                  hasApiKey: !!(cfg.twitterApiKey || process.env.TWITTER_API_KEY),
-                  hasOAuth2Token: !!cfg.oauth2AccessToken,
-                  hasOAuth2ClientId: !!cfg.oauth2ClientId,
+                  auth: "twitter-cli (browser cookie)",
                   nicheKeywords: cfg.nicheKeywords,
-                  replyStyle: cfg.replyStyle ?? cfg.preferredStyle ?? "curious",
+                  replyStyle: cfg.replyStyle ?? "curious",
                 },
               }),
             },
@@ -295,7 +288,7 @@ async function startServer() {
       return withErrorHandling(async () => {
         setActiveAccount(args.account);
 
-        // Reset Twitter client cache so next call picks up new account's credentials
+        // Reset Twitter client cache so next call picks up new account's identity
         resetClient();
 
         // Verify the switch by re-reading

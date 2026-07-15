@@ -63,9 +63,8 @@ function mockActiveAccount(account: string | undefined): void {
       if (path === ACTIVE_ACCOUNT_PATH) return account;
       if (path === getAccountConfigPath(account)) {
         return JSON.stringify({
-          twitterApiKey: `key-${account}`,
-          twitterApiSecret: `secret-${account}`,
           nicheKeywords: [`keyword-${account}`],
+          replyStyle: "curious",
         });
       }
       return "{}";
@@ -187,11 +186,11 @@ describe("account switching", () => {
 
   describe("getEffectiveConfig", () => {
     it("falls back to default config when no account is active", () => {
-      mockDefaultConfig({ preferredStyle: "casual" });
+      mockDefaultConfig({ replyStyle: "casual" });
 
       const result = getEffectiveConfig();
 
-      expect(result.preferredStyle).toBe("casual");
+      expect(result.replyStyle).toBe("casual");
       expect(result.nicheKeywords).toContain("indie dev");
     });
 
@@ -200,7 +199,7 @@ describe("account switching", () => {
 
       const result = getEffectiveConfig();
 
-      expect(result.preferredStyle).toBe("curious");
+      expect(result.replyStyle).toBe("curious");
     });
 
     it("reads from account config when account is active", () => {
@@ -208,9 +207,8 @@ describe("account switching", () => {
 
       const result = getEffectiveConfig();
 
-      expect(result.twitterApiKey).toBe("key-work");
-      expect(result.twitterApiSecret).toBe("secret-work");
       expect(result.nicheKeywords).toEqual(["keyword-work"]);
+      expect(result.replyStyle).toBe("curious");
     });
 
     it("merges account config with defaults", () => {
@@ -251,7 +249,7 @@ describe("account switching", () => {
 
       const result = getEffectiveConfig();
 
-      expect(result.preferredStyle).toBe("curious");
+      expect(result.replyStyle).toBe("curious");
       expect(result.nicheKeywords).toContain("indie dev");
     });
 
@@ -268,7 +266,7 @@ describe("account switching", () => {
 
       const result = getEffectiveConfig();
 
-      expect(result.preferredStyle).toBe("curious");
+      expect(result.replyStyle).toBe("curious");
       expect(result.nicheKeywords).toContain("indie dev");
     });
   });
@@ -277,9 +275,9 @@ describe("account switching", () => {
 
   describe("updateEffectiveConfig", () => {
     it("writes to default config when no account is active", () => {
-      mockDefaultConfig({ preferredStyle: "casual" });
+      mockDefaultConfig({ replyStyle: "casual" });
 
-      updateEffectiveConfig({ preferredStyle: "thoughtful" });
+      updateEffectiveConfig({ replyStyle: "thoughtful" });
 
       expect(writeFileSync).toHaveBeenCalledWith(
         CONFIG_PATH,
@@ -308,9 +306,9 @@ describe("account switching", () => {
 
       const writtenContent = vi.mocked(writeFileSync).mock.calls[0][1] as string;
       const parsed = JSON.parse(writtenContent);
-      // Should keep existing key/secret and merge new keywords
-      expect(parsed.twitterApiKey).toBe("key-work");
+      // Should keep existing nicheKeywords and merge new ones
       expect(parsed.nicheKeywords).toEqual(["new-keyword"]);
+      expect(parsed.replyStyle).toBe("curious");
     });
 
     it("creates account directory when it does not exist", () => {
@@ -324,7 +322,7 @@ describe("account switching", () => {
         return "{}";
       });
 
-      updateEffectiveConfig({ twitterApiKey: "key" });
+      updateEffectiveConfig({ nicheKeywords: ["dev"] });
 
       expect(mkdirSync).toHaveBeenCalledWith(
         getAccountDir("new-account"),
@@ -357,7 +355,7 @@ describe("account switching", () => {
   describe("switch then getEffectiveConfig", () => {
     it("switch_account followed by getEffectiveConfig reads new account", () => {
       // Step 1: No active account, default config exists
-      mockDefaultConfig({ twitterApiKey: "default-key" });
+      mockDefaultConfig({ replyStyle: "casual" });
 
       // Step 2: Switch to "work"
       vi.mocked(existsSync).mockReset();
@@ -373,9 +371,9 @@ describe("account switching", () => {
       });
       vi.mocked(readFileSync).mockImplementation((path: string) => {
         if (path === ACTIVE_ACCOUNT_PATH) return "work";
-        if (path === CONFIG_PATH) return JSON.stringify({ twitterApiKey: "default-key" });
+        if (path === CONFIG_PATH) return JSON.stringify({ replyStyle: "casual" });
         if (path === getAccountConfigPath("work")) {
-          return JSON.stringify({ twitterApiKey: "work-key" });
+          return JSON.stringify({ nicheKeywords: ["work-specific"] });
         }
         return "{}";
       });
@@ -383,7 +381,7 @@ describe("account switching", () => {
       const result = getEffectiveConfig();
 
       // Should read from the "work" account config, not default
-      expect(result.twitterApiKey).toBe("work-key");
+      expect(result.nicheKeywords).toEqual(["work-specific"]);
     });
   });
 
@@ -398,7 +396,7 @@ describe("account switching", () => {
       });
       vi.mocked(readFileSync).mockImplementation((path: string) => {
         if (path === CONFIG_PATH) {
-          return JSON.stringify({ twitterApiKey: "default-key" });
+          return JSON.stringify({ replyStyle: "supportive" });
         }
         return "{}";
       });
@@ -413,10 +411,10 @@ describe("account switching", () => {
       vi.mocked(readFileSync).mockImplementation((path: string) => {
         if (path === ACTIVE_ACCOUNT_PATH) return "personal";
         if (path === CONFIG_PATH) {
-          return JSON.stringify({ twitterApiKey: "default-key" });
+          return JSON.stringify({ replyStyle: "supportive" });
         }
         if (path === getAccountConfigPath("personal")) {
-          return JSON.stringify({ twitterApiKey: "personal-key" });
+          return JSON.stringify({ nicheKeywords: ["personal-keywords"] });
         }
         return "{}";
       });
@@ -424,7 +422,7 @@ describe("account switching", () => {
       // getConfig should still read default config.json
       const result = getConfig();
 
-      expect(result.twitterApiKey).toBe("default-key");
+      expect(result.replyStyle).toBe("supportive");
     });
   });
 });

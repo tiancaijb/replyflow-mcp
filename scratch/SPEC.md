@@ -44,15 +44,17 @@ ReplyFlow MCP Server 是一个给独立开发者管理 Twitter 回复的 MCP 工
 
 不接入 Twitter Write API。用户「复制→粘贴→发布」。
 
-## Twitter API
+## 认证方式
 
-共享开发者的 Essential（免费）层 Key，用户配在环境变量中。
+使用 [twitter-cli](https://github.com/tiancaijb/twitter-cli)（Python CLI 工具）作为数据后端。
+twitter-cli 使用浏览器 Cookie 认证，无需 Twitter API Key，不受 API 配额限制。
+用户只需安装 twitter-cli 并执行一次 `twitter status` 完成浏览器登录即可。
 
 ## 用户配置
 
 - **当前账号配置**：`~/.replyflow/config.json`
 - **多账号支持**：`~/.replyflow/accounts/<account-name>/config.json`
-  - 独立配置：API Key / OAuth / Keywords / Style
+  - 独立配置：Keywords / Style
   - 通过 `replyflow_switch_account` 切换
 
 ## 回复历史
@@ -65,5 +67,6 @@ ReplyFlow MCP Server 是一个给独立开发者管理 Twitter 回复的 MCP 工
 
 - Node.js / TypeScript
 - @modelcontextprotocol/sdk
-- Twitter API v2（Read）
+- twitter-cli（Python CLI，通过 child_process 调用）
+- 无外部 API 依赖
 

@@ -28,7 +28,6 @@
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "twitter-api-v2": "^1.29.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

@@ -4,8 +4,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── Note ─────────────────────────────────────────────────────────────────────
 // mergeAndSort is the only pure function in twitter.ts.
-// Other functions require mocking twitter-api-v2 client which is tested
-// in the public integration API. Here we test mergeAndSort thoroughly.
+// Other functions call twitter-cli and are tested via integration.
+// Here we test mergeAndSort thoroughly.
 
 import { mergeAndSort } from "../src/twitter.js";
 import type { TweetData } from "../src/twitter.js";
