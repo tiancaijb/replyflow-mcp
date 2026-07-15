@@ -1,0 +1,32 @@
+{
+  "name": "replyflow-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for managing Twitter replies — list, generate drafts, copy to clipboard",
+  "type": "commonjs",
+  "bin": {
+    "replyflow-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["mcp", "twitter", "reply", "independent-developer"],
+  "author": "",
+  "license": "ISC",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2"
+  }
+}
