@@ -224,6 +224,10 @@ async function startServer() {
         .array(z.string())
         .optional()
         .describe("Project keywords (when creating/updating a project)"),
+      language: z
+        .string()
+        .optional()
+        .describe("Language for reply explanations (e.g. '中文', 'English', '日本語')"),
       keywords: z
         .array(z.string())
         .optional()
@@ -261,6 +265,10 @@ async function startServer() {
             };
             partial.projects = projects;
           }
+        }
+
+        if (args.language !== undefined) {
+          partial.language = args.language;
         }
 
         if (args.keywords !== undefined) {
@@ -346,6 +354,7 @@ async function startServer() {
                   auth: "twitter-cli (browser cookie)",
                   nicheKeywords: cfg.nicheKeywords,
                   replyStyle: cfg.replyStyle ?? "curious",
+                  language: cfg.language ?? null,
                 },
               }),
             },

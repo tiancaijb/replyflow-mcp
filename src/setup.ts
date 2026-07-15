@@ -82,6 +82,7 @@ function printSaveSummary(config: Partial<Config>): void {
     console.log(`  │     Keywords:        ${(project.keywords.join(", ") + "                    ").slice(0, 37)}│`);
   }
   console.log(`  │     Reply Style:     ${(config.replyStyle ?? "curious" + "                    ").slice(0, 37)}│`);
+  console.log(`  │     Language:        ${((config.language ?? "(auto-detect on first use)") + "                    ").slice(0, 37)}│`);
   console.log("  │                                                      │");
   console.log("  ╰──────────────────────────────────────────────────────╯");
   console.log("");
@@ -215,6 +216,20 @@ export async function runInteractiveSetup(): Promise<boolean> {
     // Step 5: Reply style
     const style = await stepReplyStyle(rl);
 
+    // Step 6: Language (optional)
+    console.log("");
+    console.log("  ── Step 6: Language for Reply Explanations ────────────────");
+    console.log("");
+    console.log("  Language used to explain generated reply options to you.");
+    console.log("  If not set, the AI will auto-detect from your first input.");
+    console.log("");
+    const langRaw = await askWithDefault(
+      rl,
+      '  Language [留空则 AI 自动检测] (e.g. "中文", "English", "日本語"): ',
+      "",
+    );
+    const language = langRaw.trim() || undefined;
+
     // ── Build config ──────────────────────────────────────────────────
     const config: Partial<Config> = {
       activeProject: projectName,
@@ -227,6 +242,7 @@ export async function runInteractiveSetup(): Promise<boolean> {
         },
       },
       replyStyle: style,
+      language,
     };
 
     // ── Confirm and save ──────────────────────────────────────────────

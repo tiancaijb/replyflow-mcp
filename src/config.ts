@@ -31,6 +31,12 @@ export interface Config {
   nicheKeywords?: string[];
   /** Preferred reply style */
   replyStyle?: ReplyStyle;
+  /**
+   * Language for reply explanations (e.g. "中文", "English", "日本語").
+   * Auto-detected from user's first input and confirmed before setting.
+   * When not set, the AI should detect and ask for confirmation.
+   */
+  language?: string;
 }
 
 const DEFAULT_CONFIG: Config = {

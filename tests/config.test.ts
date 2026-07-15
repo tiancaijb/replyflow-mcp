@@ -148,6 +148,50 @@ describe("config", () => {
     });
   });
 
+  // ── language field ────────────────────────────────────────────────────────
+
+  describe("language field", () => {
+    it("is undefined by default", () => {
+      vi.mocked(existsSync).mockReturnValue(false);
+
+      const result = getConfig();
+
+      expect(result.language).toBeUndefined();
+    });
+
+    it("returns language when set in config", () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue(
+        JSON.stringify({ language: "日本語" }),
+      );
+
+      const result = getConfig();
+
+      expect(result.language).toBe("日本語");
+    });
+
+    it("preserves language when updating other fields", () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue(
+        JSON.stringify({ language: "中文", replyStyle: "casual" }),
+      );
+
+      const result = updateConfig({ replyStyle: "supportive" });
+
+      expect(result.language).toBe("中文");
+      expect(result.replyStyle).toBe("supportive");
+    });
+
+    it("can be updated via updateConfig", () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({}));
+
+      const result = updateConfig({ language: "English" });
+
+      expect(result.language).toBe("English");
+    });
+  });
+
   // ── getNicheKeywords ─────────────────────────────────────────────────────
 
   describe("getNicheKeywords", () => {

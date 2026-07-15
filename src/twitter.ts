@@ -1,4 +1,4 @@
-import { execSync } from "child_process";
+import { spawnSync } from "child_process";
 import { Config, getNicheKeywords } from "./config.js";
 
 // ── Public types ─────────────────────────────────────────────────────────────
@@ -86,13 +86,14 @@ interface CliTweetData {
  * Throws if the command fails or returns non-JSON output.
  */
 function runTwitter(args: string[]): CliResponse {
-  const cmd = `twitter ${args.join(" ")}`;
   try {
-    const output = execSync(cmd, {
+    const result = spawnSync("twitter", args, {
       encoding: "utf-8",
       maxBuffer: 10 * 1024 * 1024,
-      stdio: "pipe",
+      shell: false,
     });
+    if (result.error) throw result.error;
+    const output = result.stdout;
     return JSON.parse(output) as CliResponse;
   } catch (err) {
     if (err instanceof Error) {
@@ -181,8 +182,8 @@ export function getTrendingPosts(
 
   if (terms.length === 0) return [];
 
-  // Build query string: quoted terms separated by spaces (twitter search handles OR internally)
-  const query = terms.map((k) => `"${k}"`).join(" ");
+  // Build query string: terms joined with OR
+  const query = terms.map((k) => `"${k}"`).join(" OR ");
 
   try {
     const result = runTwitter([
