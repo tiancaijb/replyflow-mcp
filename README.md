@@ -17,15 +17,6 @@ ReplyFlow 是一个 [MCP (Model Context Protocol)](https://modelcontextprotocol.
 |------|------|------|------|
 | `filter` | `"all" \| "mentions" \| "timeline"` | `"all"` | 筛选来源 |
 
-### replyflow_generate — 生成 AI 回复草稿
-
-上下文感知：自动拉帖子 + 回复链，理解语境再写。5 种风格，强制 280 字符内。
-
-| 参数 | 类型 | 默认 | 说明 |
-|------|------|------|------|
-| `tweetId` | `string` | — | 要回复的帖子 ID |
-| `style` | `"casual" \| "curious" \| "supportive" \| "thoughtful" \| "auto"` | `"curious"` | 回复风格 |
-
 ### replyflow_copy — 复制到剪贴板
 
 自动记录回复历史。
@@ -58,7 +49,7 @@ ReplyFlow 是一个 [MCP (Model Context Protocol)](https://modelcontextprotocol.
 |------|------|------|
 | `account` | `string` | 账号名称（如 `"personal"`、`"work"`） |
 
-每个账号独立配置（API Key / OAuth / LLM Key / Keywords / Style），存储在 `~/.replyflow/accounts/<name>/config.json`。
+每个账号独立配置（API Key / OAuth / Keywords / Style），存储在 `~/.replyflow/accounts/<name>/config.json`。
 
 ## 快速开始
 
@@ -89,7 +80,6 @@ npx replyflow-mcp setup --account myaccount
 2. **OAuth 2.0 PKCE（推荐）** — 授权读取 timeline 和 @mentions
 3. **Niche 关键词** — 搜索相关帖子的关键词
 4. **回复风格** — Curious（默认）/ Casual / Supportive / Thoughtful / Auto
-5. **LLM API Key** — Anthropic（首选）或 OpenAI（备选）
 
 配置保存在 `~/.replyflow/config.json`（默认）或 `~/.replyflow/accounts/<name>/config.json`（多账号）。
 
@@ -101,10 +91,6 @@ npx replyflow-mcp setup --account myaccount
 | `TWITTER_API_SECRET` | 是 | Twitter Consumer Secret |
 | `TWITTER_ACCESS_TOKEN` | 否 | OAuth 1.0a 用户 Token |
 | `TWITTER_ACCESS_TOKEN_SECRET` | 否 | OAuth 1.0a 用户 Token Secret |
-| `ANTHROPIC_API_KEY` | 否* | 用于 AI 回复生成 |
-| `OPENAI_API_KEY` | 否* | 备选 LLM |
-
-\* 需至少一种 LLM Key 才能用 `replyflow_generate`。环境变量优先级高于配置文件。
 
 ## MCP 客户端配置
 
@@ -118,8 +104,7 @@ npx replyflow-mcp setup --account myaccount
       "args": ["replyflow-mcp"],
       "env": {
         "TWITTER_API_KEY": "your_key",
-        "TWITTER_API_SECRET": "your_secret",
-        "ANTHROPIC_API_KEY": "your_anthropic_key"
+        "TWITTER_API_SECRET": "your_secret"
       }
     }
   }
@@ -143,10 +128,10 @@ npx replyflow-mcp --help                   # 查看帮助
 你：看看今天有什么值得回的帖子
 Agent：→ replyflow_list
 
-你：给这条帖子生成回复，用 supportive 风格
-Agent：→ replyflow_generate → 返回 3 条草稿
+你：给这条帖子写个回复
+Agent：（自行生成回复内容）
 
-你：用第二条
+你：用这个回复
 Agent：→ replyflow_copy → 复制到剪贴板
 
 你：切换到工作号
@@ -161,13 +146,12 @@ Agent：→ replyflow_history → 返回最近 20 条记录
 ```
 replyflow-mcp/
 ├── src/
-│   ├── index.ts        # MCP Server 入口 + 7 个 tool 定义
+│   ├── index.ts        # MCP Server 入口 + 6 个 tool 定义
 │   ├── config.ts       # 配置管理 + 多账号支持
 │   ├── setup.ts        # 交互式配置流程（含 OAuth 2.0 PKCE）
 │   ├── twitter.ts      # Twitter API 封装
-│   ├── generate.ts     # AI 回复生成（Claude + OpenAI）
 │   └── history.ts      # 回复历史记录
-├── tests/              # Vitest 测试（109+ 个）
+├── tests/              # Vitest 测试
 ├── scratch/            # 设计文档和 tickets
 ├── LICENSE
 ├── package.json

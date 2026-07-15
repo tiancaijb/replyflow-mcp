@@ -24,12 +24,7 @@ ReplyFlow MCP Server 是一个给独立开发者管理 Twitter 回复的 MCP 工
    - 参数：`filter`（可选 all / mentions / timeline）
    - 已回复的帖子标记"已回"但不过滤
 
-2. **replyflow_generate** — 为帖子生成回复草稿
-   - 上下文感知
-   - 参数：`tweetId`, `style`（可选）
-   - 返回：2-3 条草稿
-
-3. **replyflow_copy** — 把回复复制到剪贴板
+2. **replyflow_copy** — 把回复复制到剪贴板
    - 调用时自动记录到回复历史
    - 参数：`text`
    - 返回：`copied: true` + 历史记录 ID
@@ -57,7 +52,7 @@ ReplyFlow MCP Server 是一个给独立开发者管理 Twitter 回复的 MCP 工
 
 - **当前账号配置**：`~/.replyflow/config.json`
 - **多账号支持**：`~/.replyflow/accounts/<account-name>/config.json`
-  - 独立配置：API Key / OAuth / LLM Key / Keywords / Style
+  - 独立配置：API Key / OAuth / Keywords / Style
   - 通过 `replyflow_switch_account` 切换
 
 ## 回复历史
@@ -71,4 +66,4 @@ ReplyFlow MCP Server 是一个给独立开发者管理 Twitter 回复的 MCP 工
 - Node.js / TypeScript
 - @modelcontextprotocol/sdk
 - Twitter API v2（Read）
-- Claude API / OpenAI API
+

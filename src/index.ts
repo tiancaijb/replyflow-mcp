@@ -9,13 +9,11 @@ import {
   checkCredentials,
   resolveTwitterApiKey,
   resolveTwitterApiSecret,
-  ReplyStyle,
   updateEffectiveConfig,
   getActiveAccount,
   setActiveAccount,
 } from "./config.js";
 import { list, resetClient } from "./twitter.js";
-import { generateReply } from "./generate.js";
 import { appendHistory, readHistory, getRepliedTweetIds } from "./history.js";
 
 // ── CLI entry ────────────────────────────────────────────────────────────────
@@ -151,46 +149,9 @@ async function startServer() {
     },
   );
 
-  // ── Tool: replyflow_generate ─────────────────────────────────────────
+  // ── Tool: replyflow_copy ─────────────────────────────────────────────
 
   const STYLE_OPTIONS = ["casual", "curious", "supportive", "thoughtful", "auto"] as const;
-
-  server.tool(
-    "replyflow_generate",
-    {
-      tweetId: z.string().describe("ID of the tweet to reply to"),
-      style: z
-        .enum(STYLE_OPTIONS)
-        .optional()
-        .describe("Reply style (default: curious, auto = AI infers from post tone)"),
-    },
-    async (args) => {
-      return withErrorHandling(async () => {
-        const config = getEffectiveConfig();
-        resolveTwitterApiKey(config);
-        resolveTwitterApiSecret(config);
-
-        const style: ReplyStyle =
-          (args.style as ReplyStyle) ??
-          config.preferredStyle ??
-          config.replyStyle ??
-          "curious";
-
-        const result = await generateReply(config, args.tweetId, style);
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result),
-            },
-          ],
-        };
-      });
-    },
-  );
-
-  // ── Tool: replyflow_copy ─────────────────────────────────────────────
 
   server.tool(
     "replyflow_copy",
@@ -201,7 +162,7 @@ async function startServer() {
         .optional()
         .describe("ID of the tweet being replied to (recorded in history)"),
       style: z
-        .enum(["casual", "curious", "supportive", "thoughtful", "auto"])
+        .enum(STYLE_OPTIONS)
         .optional()
         .describe("Reply style used (recorded in history)"),
     },

@@ -26,10 +26,7 @@ import {
   resolveTwitterApiSecret,
   resolveTwitterAccessToken,
   resolveTwitterAccessTokenSecret,
-  resolveAnthropicApiKey,
-  resolveOpenAiApiKey,
   getNicheKeywords,
-  getReplyStyle,
   CONFIG_PATH,
   CONFIG_DIR,
 } from "../src/config.js";
@@ -137,8 +134,6 @@ describe("config", () => {
       delete process.env.TWITTER_API_KEY;
       delete process.env.TWITTER_API_SECRET;
       delete process.env.TWITTER_ACCESS_TOKEN;
-      delete process.env.ANTHROPIC_API_KEY;
-      delete process.env.OPENAI_API_KEY;
     });
 
     it("reports missing API creds when neither config nor env has keys", () => {
@@ -180,27 +175,6 @@ describe("config", () => {
       const report = checkConfigIntegrity(config);
 
       expect(report.warnings.some((w) => w.includes("user-context auth"))).toBe(true);
-    });
-
-    it("warns when no LLM API key is present", () => {
-      process.env.TWITTER_API_KEY = "key";
-      process.env.TWITTER_API_SECRET = "secret";
-      process.env.TWITTER_ACCESS_TOKEN = "token";
-
-      const config: Config = {};
-      const report = checkConfigIntegrity(config);
-
-      expect(report.warnings.some((w) => w.includes("LLM API key"))).toBe(true);
-    });
-
-    it("does not warn about LLM when Anthropic key is in config", () => {
-      process.env.TWITTER_API_KEY = "key";
-      process.env.TWITTER_API_SECRET = "secret";
-
-      const config: Config = { anthropicApiKey: "sk-ant-test" };
-      const report = checkConfigIntegrity(config);
-
-      expect(report.warnings.some((w) => w.includes("LLM API key"))).toBe(false);
     });
   });
 
@@ -298,50 +272,6 @@ describe("config", () => {
     });
   });
 
-  describe("resolveAnthropicApiKey", () => {
-    afterEach(() => {
-      delete process.env.ANTHROPIC_API_KEY;
-    });
-
-    it("returns env var when set", () => {
-      process.env.ANTHROPIC_API_KEY = "sk-ant-env";
-      const result = resolveAnthropicApiKey({ anthropicApiKey: "sk-ant-cfg" });
-      expect(result).toBe("sk-ant-env");
-    });
-
-    it("returns config value when no env var", () => {
-      const result = resolveAnthropicApiKey({ anthropicApiKey: "sk-ant-cfg" });
-      expect(result).toBe("sk-ant-cfg");
-    });
-
-    it("returns undefined when neither is set", () => {
-      const result = resolveAnthropicApiKey({});
-      expect(result).toBeUndefined();
-    });
-  });
-
-  describe("resolveOpenAiApiKey", () => {
-    afterEach(() => {
-      delete process.env.OPENAI_API_KEY;
-    });
-
-    it("returns env var when set", () => {
-      process.env.OPENAI_API_KEY = "sk-openai-env";
-      const result = resolveOpenAiApiKey({ openaiApiKey: "sk-openai-cfg" });
-      expect(result).toBe("sk-openai-env");
-    });
-
-    it("returns config value when no env var", () => {
-      const result = resolveOpenAiApiKey({ openaiApiKey: "sk-openai-cfg" });
-      expect(result).toBe("sk-openai-cfg");
-    });
-
-    it("returns undefined when neither is set", () => {
-      const result = resolveOpenAiApiKey({});
-      expect(result).toBeUndefined();
-    });
-  });
-
   // ── getNicheKeywords ─────────────────────────────────────────────────────
 
   describe("getNicheKeywords", () => {
@@ -361,30 +291,5 @@ describe("config", () => {
     });
   });
 
-  // ── getReplyStyle ────────────────────────────────────────────────────────
 
-  describe("getReplyStyle", () => {
-    it("returns replyStyle when set", () => {
-      const result = getReplyStyle({ replyStyle: "supportive" });
-      expect(result).toBe("supportive");
-    });
-
-    it("falls back to preferredStyle when replyStyle is not set", () => {
-      const result = getReplyStyle({ preferredStyle: "thoughtful" });
-      expect(result).toBe("thoughtful");
-    });
-
-    it("returns default 'curious' when nothing is set", () => {
-      const result = getReplyStyle({});
-      expect(result).toBe("curious");
-    });
-
-    it("prefers replyStyle over preferredStyle", () => {
-      const result = getReplyStyle({
-        replyStyle: "casual",
-        preferredStyle: "supportive",
-      });
-      expect(result).toBe("casual");
-    });
-  });
 });

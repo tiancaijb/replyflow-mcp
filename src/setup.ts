@@ -8,8 +8,7 @@
  *   2. (Optional) Twitter OAuth 2.0 PKCE — get user-context access token
  *   3. Niche keywords for trending-post search
  *   4. Preferred reply style
- *   5. (Optional) LLM API Key
- *   6. Save to ~/.replyflow/config.json
+ *   5. Save to config file
  */
 
 import * as readline from "node:readline/promises";
@@ -106,7 +105,6 @@ function printSaveSummary(config: Partial<Config>): void {
   console.log(`  │     API Key:         ${(mask(config.twitterApiKey) + "                    ").slice(0, 37)}│`);
   console.log(`  │     API Secret:      ${(mask(config.twitterApiSecret) + "                    ").slice(0, 37)}│`);
   console.log(`  │     OAuth 2.0:       ${config.oauth2AccessToken ? "✅ Connected" : "⏭️  Skipped"}                    │`);
-  console.log(`  │     LLM Key:         ${config.anthropicApiKey || process.env.ANTHROPIC_API_KEY ? "✅ Set" : "⏭️  Skipped"}                    │`);
   console.log(`  │     Keywords:        ${((config.nicheKeywords ?? []).join(", ") + "                    ").slice(0, 37)}│`);
   console.log(`  │     Reply Style:     ${(config.replyStyle ?? "curious" + "                    ").slice(0, 37)}│`);
   console.log("  │                                                      │");
@@ -427,31 +425,6 @@ async function stepReplyStyle(rl: ReadlineInterface): Promise<ReplyStyle> {
   return STYLES[idx].key;
 }
 
-/**
- * Ask for LLM API key (optional).
- */
-async function stepLlmKey(rl: ReadlineInterface): Promise<string | undefined> {
-  console.log("");
-  console.log("  ── Step 5: LLM API Key (optional) ────────────────────────────");
-  console.log("");
-  console.log("  Used to generate AI reply drafts. You can also set");
-  console.log("  ANTHROPIC_API_KEY or OPENAI_API_KEY as env vars.");
-  console.log("");
-
-  const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
-  const hasOpenai = !!process.env.OPENAI_API_KEY;
-
-  if (hasAnthropic || hasOpenai) {
-    console.log(
-      `  ✅  ${hasAnthropic ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY"} found in environment.`,
-    );
-    return undefined;
-  }
-
-  const key = await ask(rl, "  Anthropic API Key (or leave blank to skip): ");
-  return key || undefined;
-}
-
 // ── Main entry ───────────────────────────────────────────────────────────────
 
 /**
@@ -491,9 +464,6 @@ export async function runInteractiveSetup(account?: string): Promise<boolean> {
     // Step 4: Reply style
     const style = await stepReplyStyle(rl);
 
-    // Step 5: LLM API key
-    const llmKey = await stepLlmKey(rl);
-
     // ── Build config ──────────────────────────────────────────────────
     const config: Partial<Config> = {
       twitterApiKey: apiKey,
@@ -513,9 +483,6 @@ export async function runInteractiveSetup(account?: string): Promise<boolean> {
     }
     if (oauth.tokenExpiresAt) {
       config.oauth2TokenExpiresAt = oauth.tokenExpiresAt;
-    }
-    if (llmKey) {
-      config.anthropicApiKey = llmKey;
     }
 
     // ── Confirm and save ──────────────────────────────────────────────

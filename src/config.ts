@@ -15,10 +15,6 @@ export interface Config {
   twitterAccessToken?: string;
   /** Twitter Access Token Secret (OAuth 1.0a user context) */
   twitterAccessTokenSecret?: string;
-  /** Anthropic API Key (for reply generation via Claude) */
-  anthropicApiKey?: string;
-  /** OpenAI API Key (fallback for reply generation) */
-  openaiApiKey?: string;
   /** User preference: reply style */
   preferredStyle?: ReplyStyle;
   /** OAuth 2.0 Client ID (for PKCE flow) */
@@ -235,19 +231,6 @@ export function checkConfigIntegrity(config: Config): ConfigIntegrityReport {
     );
   }
 
-  const hasLlmKey = !!(
-    process.env.ANTHROPIC_API_KEY ||
-    config.anthropicApiKey ||
-    process.env.OPENAI_API_KEY ||
-    config.openaiApiKey
-  );
-
-  if (!hasLlmKey) {
-    warnings.push(
-      "No LLM API key (ANTHROPIC_API_KEY / OPENAI_API_KEY) – replyflow_generate will fail.",
-    );
-  }
-
   return { ok: missing.length === 0, missing, warnings };
 }
 
@@ -308,25 +291,6 @@ export function resolveTwitterAccessTokenSecret(config: Config): string | undefi
 }
 
 /**
- * Returns the Anthropic API key from env var or config file.
- * Env vars take precedence over config file.
- */
-export function resolveAnthropicApiKey(config: Config): string | undefined {
-  const env = process.env.ANTHROPIC_API_KEY;
-  if (env) return env;
-  return config.anthropicApiKey;
-}
-
-/**
- * Returns the OpenAI API key from env var or config file.
- * Env vars take precedence over config file.
- */
-export function resolveOpenAiApiKey(config: Config): string | undefined {
-  const env = process.env.OPENAI_API_KEY;
-  if (env) return env;
-  return config.openaiApiKey;
-}
-
 /**
  * Returns the OAuth 2.0 Client ID from env var or config file.
  * Env vars take precedence.
@@ -409,9 +373,4 @@ export function getNicheKeywords(config: Config): string[] {
   return DEFAULT_CONFIG.nicheKeywords!;
 }
 
-/**
- * Returns the effective reply style from config.
- */
-export function getReplyStyle(config: Config): ReplyStyle {
-  return config.replyStyle ?? config.preferredStyle ?? "curious";
-}
+
