@@ -1,8 +1,6 @@
 # ReplyFlow MCP Server
 
-> **项目关系**：这是 ReplyFlow 的**产品本体**（MCP Server）。
-> 公开官网在独立的仓库 `~/dev/replyflow/` 中，已部署到 https://replyflow-wine.vercel.app。
-> 官网用于展示产品和收集用户邮箱，MCP Server 是用户实际安装使用的工具。
+> **性质**：纯开源项目，面向开发者。用户直接从 GitHub 安装使用。
 
 ## 一句话
 
@@ -13,19 +11,18 @@ ReplyFlow MCP Server 是一个给独立开发者管理 Twitter 回复的 MCP 工
 
 英文市场独立开发者，在 Twitter 上 build in public。
 
-## MVP 核心模型
+## 产品形态
 
-### 形态
+- **核心**：MCP Server（提供多个 tool）
+- **封装**：CLI wrapper（`npx replyflow-mcp`）
 
-- **核心**：MCP Server（提供 3 个 tool）
-- **封装**：CLI wrapper（`npx replyflow-mcp`）+ pi-agent skill（后续）
-
-### 三个 Tool
+## MCP Tools
 
 1. **replyflow_list** — 拉今天值得回的帖子列表
    - 来源：用户 Timeline + @通知 + niche 热门帖
    - 帖子带完整上下文
    - 参数：`filter`（可选 all / mentions / timeline）
+   - 已回复的帖子标记"已回"但不过滤
 
 2. **replyflow_generate** — 为帖子生成回复草稿
    - 上下文感知
@@ -33,19 +30,41 @@ ReplyFlow MCP Server 是一个给独立开发者管理 Twitter 回复的 MCP 工
    - 返回：2-3 条草稿
 
 3. **replyflow_copy** — 把回复复制到剪贴板
+   - 调用时自动记录到回复历史
    - 参数：`text`
+   - 返回：`copied: true` + 历史记录 ID
 
-### 发帖策略
+4. **replyflow_update_config** — 更新配置
+   - 参数：`keywords`, `style`
 
-MVP 不接入 Twitter Write API。用户「复制→粘贴→发布」。
+5. **replyflow_config_status** — 查看配置状态
 
-### Twitter API
+6. **replyflow_history** — 查看回复历史记录
+   - 参数：`tweetId`（可选，按帖子查）、`limit`（可选，默认 20）
 
-MVP 共享开发者的 Essential（免费）层 Key，用户配在环境变量中。
+7. **replyflow_switch_account** — 切换 Twitter 账号
+   - 参数：`account`（账号名称）
 
-### 用户配置
+## 发帖策略
 
-`~/.replyflow/config.json`，首次运行交互式配置，后续 agent 对话改。
+不接入 Twitter Write API。用户「复制→粘贴→发布」。
+
+## Twitter API
+
+共享开发者的 Essential（免费）层 Key，用户配在环境变量中。
+
+## 用户配置
+
+- **当前账号配置**：`~/.replyflow/config.json`
+- **多账号支持**：`~/.replyflow/accounts/<account-name>/config.json`
+  - 独立配置：API Key / OAuth / LLM Key / Keywords / Style
+  - 通过 `replyflow_switch_account` 切换
+
+## 回复历史
+
+- **存储**：`~/.replyflow/history.json`
+- **自动记录**：`replyflow_copy` 调用时记录
+- **查询**：通过 `replyflow_history` tool
 
 ## 技术栈
 

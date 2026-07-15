@@ -46,6 +46,8 @@ export interface TweetData {
   conversationId?: string;
   /** What source this tweet came from */
   source: "timeline" | "mentions" | "search";
+  /** Whether this tweet has been replied to (enriched by replyflow_list) */
+  replied?: boolean;
   /** Context chain (populated for mentions in reply chains) */
   context?: TweetContext;
 }

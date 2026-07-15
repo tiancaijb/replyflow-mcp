@@ -14,6 +14,7 @@ import {
 } from "./config.js";
 import { list } from "./twitter.js";
 import { generateReply } from "./generate.js";
+import { appendHistory, readHistory, getRepliedTweetIds } from "./history.js";
 
 // ── CLI entry ────────────────────────────────────────────────────────────────
 
@@ -122,6 +123,16 @@ async function startServer() {
 
         const result = await list(config, args.filter);
 
+        // Mark tweets that have been replied to
+        const repliedIds = getRepliedTweetIds();
+        if (result.tweets && repliedIds.size > 0) {
+          for (const tweet of result.tweets) {
+            if (repliedIds.has(tweet.id)) {
+              tweet.replied = true;
+            }
+          }
+        }
+
         return {
           content: [
             {
@@ -179,9 +190,18 @@ async function startServer() {
     "replyflow_copy",
     {
       text: z.string().describe("Reply text to copy to clipboard"),
+      tweetId: z
+        .string()
+        .optional()
+        .describe("ID of the tweet being replied to (recorded in history)"),
+      style: z
+        .enum(["casual", "curious", "supportive", "thoughtful", "auto"])
+        .optional()
+        .describe("Reply style used (recorded in history)"),
     },
     async (args) => {
       return withErrorHandling(async () => {
+        const entry = appendHistory(args.text, args.tweetId, args.style);
         return {
           content: [
             {
@@ -189,6 +209,7 @@ async function startServer() {
               text: JSON.stringify({
                 copied: true,
                 length: args.text.length,
+                historyId: entry.id,
               }),
             },
           ],
@@ -286,6 +307,36 @@ async function startServer() {
                   replyStyle: cfg.replyStyle ?? cfg.preferredStyle ?? "curious",
                 },
               }),
+            },
+          ],
+        };
+      });
+    },
+  );
+
+  // ── Tool: replyflow_history ───────────────────────────────────────────
+
+  server.tool(
+    "replyflow_history",
+    {
+      tweetId: z
+        .string()
+        .optional()
+        .describe("Filter by tweet ID"),
+      limit: z
+        .number()
+        .optional()
+        .default(20)
+        .describe("Maximum number of entries to return (default: 20)"),
+    },
+    async (args) => {
+      return withErrorHandling(async () => {
+        const entries = readHistory(args.tweetId, args.limit ?? 20);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({ entries }),
             },
           ],
         };
