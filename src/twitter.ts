@@ -7,7 +7,6 @@ import {
   TweetHomeTimelineV2Paginator,
   TweetUserMentionTimelineV2Paginator,
   Tweetv2FieldsParams,
-  Tweetv2SearchParams,
 } from "twitter-api-v2";
 
 import {
@@ -16,6 +15,12 @@ import {
   resolveTwitterApiSecret,
   resolveTwitterAccessToken,
   resolveTwitterAccessTokenSecret,
+  resolveOAuth2ClientId,
+  resolveOAuth2AccessToken,
+  resolveOAuth2RefreshToken,
+  resolveOAuth2TokenExpiresAt,
+  getNicheKeywords,
+  updateConfig,
 } from "./config.js";
 
 // ── Public types ─────────────────────────────────────────────────────────────
@@ -102,29 +107,108 @@ export function resetClient(): void {
   _me = null;
 }
 
-/**
- * Create (or return cached) OAuth 1.0a user-context client.
- * Requires both access token and access token secret.
- * Throws if tokens are missing.
- */
-function getUserClient(config: Config): TwitterApi {
-  if (_client) return _client;
+// ── OAuth 2.0 PKCE helpers ───────────────────────────────────────────────────
 
+/**
+ * Check whether the OAuth 2.0 access token is expired (or close to expiry).
+ * Returns true if no expiry info is available (assumes valid).
+ */
+function isOAuth2TokenExpired(config: Config): boolean {
+  const expiresAt = resolveOAuth2TokenExpiresAt(config);
+  if (!expiresAt) return false;
+  // Consider expired 30 seconds before actual expiry to be safe
+  return Date.now() >= new Date(expiresAt).getTime() - 30_000;
+}
+
+/**
+ * Try to refresh the OAuth 2.0 access token using the refresh token.
+ * Silently returns null on failure; the caller falls back gracefully.
+ */
+async function tryRefreshOAuth2Token(config: Config): Promise<Config | null> {
+  const clientId = resolveOAuth2ClientId(config);
+  const refreshToken = resolveOAuth2RefreshToken(config);
+
+  if (!clientId || !refreshToken) return null;
+
+  try {
+    const oauthClient = new TwitterApi({ clientId });
+    const result = await oauthClient.refreshOAuth2Token(refreshToken);
+
+    // Update config with new tokens
+    const updatedConfig = updateConfig({
+      oauth2AccessToken: result.accessToken,
+      oauth2RefreshToken: result.refreshToken,
+      oauth2TokenExpiresAt: new Date(
+        Date.now() + result.expiresIn * 1000,
+      ).toISOString(),
+    });
+
+    // Reset cached client so the next call picks up the new token
+    resetClient();
+
+    return updatedConfig;
+  } catch {
+    // Refresh failed — caller should fall back
+    return null;
+  }
+}
+
+/**
+ * Create a user-context TwitterApi client from the OAuth 2.0 PKCE access token.
+ * Returns null if no OAuth 2.0 token is available.
+ */
+function tryGetOAuth2UserClient(config: Config): TwitterApi | null {
+  const accessToken = resolveOAuth2AccessToken(config);
+  if (!accessToken) return null;
+  return new TwitterApi(accessToken);
+}
+
+// ── Auth strategy ────────────────────────────────────────────────────────────
+
+/**
+ * Determine the best available user-context client.
+ *
+ * Priority:
+ *   1. OAuth 2.0 PKCE access token (try refresh if expired)
+ *   2. OAuth 1.0a user tokens
+ *
+ * Throws if no user-context auth is available.
+ */
+async function getUserClient(config: Config): Promise<TwitterApi> {
+  // ── Try OAuth 2.0 PKCE first ──────────────────────────────────────────
+  const oauth2Token = resolveOAuth2AccessToken(config);
+  if (oauth2Token) {
+    // If expired, try to refresh
+    if (isOAuth2TokenExpired(config)) {
+      const refreshed = await tryRefreshOAuth2Token(config);
+      if (refreshed) {
+        const freshToken = resolveOAuth2AccessToken(refreshed);
+        if (freshToken) {
+          return new TwitterApi(freshToken);
+        }
+      }
+      // Refresh failed — fall through to OAuth 1.0a if available
+    } else {
+      return new TwitterApi(oauth2Token);
+    }
+  }
+
+  // ── Fall back to OAuth 1.0a ───────────────────────────────────────────
   const appKey = resolveTwitterApiKey(config);
   const appSecret = resolveTwitterApiSecret(config);
   const accessToken = resolveTwitterAccessToken(config);
   const accessSecret = resolveTwitterAccessTokenSecret(config);
 
-  if (!accessToken || !accessSecret) {
-    throw new Error(
-      "Twitter Access Token and Access Token Secret are required for timeline & mentions. " +
-        "Set TWITTER_ACCESS_TOKEN and TWITTER_ACCESS_TOKEN_SECRET env vars, " +
-        "or add 'twitterAccessToken' and 'twitterAccessTokenSecret' to ~/.replyflow/config.json",
-    );
+  if (accessToken && accessSecret) {
+    if (_client) return _client;
+    _client = new TwitterApi({ appKey, appSecret, accessToken, accessSecret });
+    return _client;
   }
 
-  _client = new TwitterApi({ appKey, appSecret, accessToken, accessSecret });
-  return _client;
+  throw new Error(
+    "No user-context auth available. Set up OAuth 2.0 via 'npx replyflow-mcp setup', " +
+      "or set TWITTER_ACCESS_TOKEN + TWITTER_ACCESS_TOKEN_SECRET env vars.",
+  );
 }
 
 /**
@@ -143,11 +227,12 @@ async function getBearerClient(config: Config): Promise<TwitterApi> {
 }
 
 /**
- * Get the authenticated user. Uses OAuth 1.0a user context.
+ * Get the authenticated user.
+ * Works with OAuth 2.0 PKCE or OAuth 1.0a.
  */
 async function getMe(config: Config): Promise<UserV2> {
   if (_me) return _me;
-  const client = getUserClient(config);
+  const client = await getUserClient(config);
   const { data } = await client.v2.me();
   _me = data;
   return data;
@@ -208,10 +293,10 @@ function toTweetData(
 
 /**
  * Fetch the user's Home Timeline (most recent ~20 tweets).
- * Requires OAuth 1.0a user context.
+ * Requires user-context auth (OAuth 2.0 PKCE or OAuth 1.0a).
  */
 export async function getTimeline(config: Config): Promise<TweetData[]> {
-  const client = getUserClient(config);
+  const client = await getUserClient(config);
 
   const timeline: TweetHomeTimelineV2Paginator =
     await client.v2.homeTimeline({
@@ -226,10 +311,10 @@ export async function getTimeline(config: Config): Promise<TweetData[]> {
 
 /**
  * Fetch @mentions for the authenticated user (most recent ~20).
- * Requires OAuth 1.0a user context.
+ * Requires user-context auth (OAuth 2.0 PKCE or OAuth 1.0a).
  */
 export async function getMentions(config: Config): Promise<TweetData[]> {
-  const client = getUserClient(config);
+  const client = await getUserClient(config);
   const me = await getMe(config);
 
   const mentions: TweetUserMentionTimelineV2Paginator =
@@ -330,25 +415,17 @@ export async function getTweetContext(
 
 // ── getTrendingPosts ─────────────────────────────────────────────────────────
 
-const DEFAULT_KEYWORDS = [
-  "indie dev",
-  "SaaS",
-  "build in public",
-  "indiehacker",
-  "indie maker",
-  "bootstrapping",
-];
-
 /**
  * Search for niche-relevant tweets by keywords.
  * Uses App-only Bearer client.
+ * Falls back to built-in defaults if no keywords configured.
  */
 export async function getTrendingPosts(
   config: Config,
   keywords?: string[],
 ): Promise<TweetData[]> {
   const bearer = await getBearerClient(config);
-  const terms = keywords && keywords.length > 0 ? keywords : DEFAULT_KEYWORDS;
+  const terms = keywords && keywords.length > 0 ? keywords : getNicheKeywords(config);
 
   // Build query: OR across keywords, exclude retweets
   const query = `(${terms.map((k) => `"${k}"`).join(" OR ")}) -is:retweet lang:en`;
@@ -436,11 +513,13 @@ export async function list(
   const result: ListResult = { tweets: [] };
 
   try {
-    // Check if we have user tokens for timeline/mentions
-    const hasUserTokens = !!(
-      resolveTwitterAccessToken(config) &&
-      resolveTwitterAccessTokenSecret(config)
-    );
+    // Check if we have any form of user-context auth
+    const hasUserTokens =
+      !!(resolveOAuth2AccessToken(config)) ||
+      !!(
+        resolveTwitterAccessToken(config) &&
+        resolveTwitterAccessTokenSecret(config)
+      );
 
     const timeline: TweetData[] = [];
     const mentions: TweetData[] = [];

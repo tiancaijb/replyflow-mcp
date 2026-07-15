@@ -21,10 +21,23 @@ export interface Config {
   openaiApiKey?: string;
   /** User preference: reply style */
   preferredStyle?: ReplyStyle;
+  /** OAuth 2.0 Client ID (for PKCE flow) */
+  oauth2ClientId?: string;
+  /** OAuth 2.0 Access Token (from PKCE, used for user-context API calls) */
+  oauth2AccessToken?: string;
+  /** OAuth 2.0 Refresh Token (with offline.access scope) */
+  oauth2RefreshToken?: string;
+  /** ISO timestamp when the access token expires */
+  oauth2TokenExpiresAt?: string;
+  /** User's niche keywords for trending post search */
+  nicheKeywords?: string[];
+  /** Preferred reply style (overrides preferredStyle for clarity in setup) */
+  replyStyle?: ReplyStyle;
 }
 
 const DEFAULT_CONFIG: Config = {
   preferredStyle: "curious",
+  nicheKeywords: ["indie dev", "saas", "build in public", "coding", "solopreneur"],
 };
 
 // ── Paths ────────────────────────────────────────────────────────────────────
@@ -68,6 +81,67 @@ export function updateConfig(partial: Partial<Config>): Config {
 
   writeFileSync(CONFIG_PATH, JSON.stringify(updated, null, 2), "utf-8");
   return updated;
+}
+
+// ── Config integrity ─────────────────────────────────────────────────────────
+
+export interface ConfigIntegrityReport {
+  /** true when all critical fields are present */
+  ok: boolean;
+  /** Fields that are missing and critical */
+  missing: string[];
+  /** Issues that won't break the server but limit functionality */
+  warnings: string[];
+}
+
+/**
+ * Check config completeness without printing anything.
+ * Returns a report of missing / warning fields.
+ */
+export function checkConfigIntegrity(config: Config): ConfigIntegrityReport {
+  const missing: string[] = [];
+  const warnings: string[] = [];
+
+  // At least one app-credential method must be present
+  const hasApiCreds =
+    !!(config.twitterApiKey || process.env.TWITTER_API_KEY) &&
+    !!(config.twitterApiSecret || process.env.TWITTER_API_SECRET);
+
+  if (!hasApiCreds) {
+    missing.push(
+      "Twitter API Key + API Secret – set TWITTER_API_KEY + TWITTER_API_SECRET env vars, " +
+        "or add 'twitterApiKey' + 'twitterApiSecret' to ~/.replyflow/config.json",
+    );
+  }
+
+  // OAuth 2.0 user token or OAuth 1.0a access tokens for user-context endpoints
+  const hasUserAuth =
+    !!(config.oauth2AccessToken) ||
+    !!(
+      config.twitterAccessToken || process.env.TWITTER_ACCESS_TOKEN
+    );
+
+  if (!hasUserAuth) {
+    warnings.push(
+      "No user-context auth token found – timeline & mentions will fall back to app-only search. " +
+        "Run 'npx replyflow-mcp setup' to set up OAuth 2.0.",
+    );
+  }
+
+  const hasLlmKey = !!(
+    process.env.ANTHROPIC_API_KEY ||
+    config.anthropicApiKey ||
+    process.env.OPENAI_API_KEY ||
+    config.openaiApiKey
+  );
+
+  if (!hasLlmKey) {
+    warnings.push(
+      "No LLM API key (ANTHROPIC_API_KEY / OPENAI_API_KEY) – replyflow_generate will fail.",
+    );
+  }
+
+  return { ok: missing.length === 0, missing, warnings };
 }
 
 // ── Environment helpers ─────────────────────────────────────────────────────
@@ -147,48 +221,90 @@ export function resolveOpenAiApiKey(config: Config): string | undefined {
 }
 
 /**
+ * Returns the OAuth 2.0 Client ID from env var or config file.
+ * Env vars take precedence.
+ */
+export function resolveOAuth2ClientId(config: Config): string | undefined {
+  const env = process.env.TWITTER_OAUTH2_CLIENT_ID;
+  if (env) return env;
+  return config.oauth2ClientId;
+}
+
+/**
+ * Returns the OAuth 2.0 access token from config (no env var override).
+ */
+export function resolveOAuth2AccessToken(config: Config): string | undefined {
+  return config.oauth2AccessToken;
+}
+
+/**
+ * Returns the OAuth 2.0 refresh token from config (no env var override).
+ */
+export function resolveOAuth2RefreshToken(config: Config): string | undefined {
+  return config.oauth2RefreshToken;
+}
+
+/**
+ * Returns the OAuth 2.0 token expiry timestamp from config.
+ */
+export function resolveOAuth2TokenExpiresAt(config: Config): string | undefined {
+  return config.oauth2TokenExpiresAt;
+}
+
+/**
  * Check whether the user has provided enough credential info to operate.
  * Prints a friendly banner if nothing is configured yet.
  */
-export function checkCredentials(config: Config): boolean {
-  const hasTwitterKey = !!(
-    resolveTwitterApiKey(config) &&
-    resolveTwitterApiSecret(config)
-  );
-  const hasLlmKey = !!(
-    resolveAnthropicApiKey(config) ||
-    resolveOpenAiApiKey(config)
-  );
+export function checkCredentials(config: Config, integrity?: ConfigIntegrityReport): boolean {
+  const report = integrity ?? checkConfigIntegrity(config);
 
-  const ok = hasTwitterKey;
-
-  if (!ok) {
+  if (!report.ok || report.warnings.length > 0) {
     console.error("");
     console.error("  ╭──────────────────────────────────────────────────────╮");
     console.error("  │                                                      │");
-    console.error("  │   ReplyFlow – Twitter API credentials needed         │");
+    console.error("  │   ReplyFlow – Configuration check                    │");
     console.error("  │                                                      │");
-    console.error("  │   Set these env vars:                                │");
-    console.error("  │     TWITTER_API_KEY                                  │");
-    console.error("  │     TWITTER_API_SECRET                               │");
+
+    if (!report.ok) {
+      console.error("  │                                                      │");
+      console.error("  │   ❌ Missing critical config:                       │");
+      for (const item of report.missing) {
+        console.error(`  │      ${item}`);
+      }
+    }
+
+    if (report.warnings.length > 0) {
+      console.error("  │                                                      │");
+      console.error("  │   ⚠️  Warnings:                                      │");
+      for (const item of report.warnings) {
+        console.error(`  │      ${item}`);
+      }
+    }
+
     console.error("  │                                                      │");
-    console.error("  │   Or create ~/.replyflow/config.json:                │");
-    console.error("  │   {                                                  │");
-    console.error('  │     "twitterApiKey": "your_key",                     │');
-    console.error('  │     "twitterApiSecret": "your_secret"                │');
-    console.error("  │   }                                                  │");
-    console.error("  │                                                      │");
-    console.error("  │   For timeline & mentions, also set:                 │");
-    console.error("  │     TWITTER_ACCESS_TOKEN                             │");
-    console.error("  │     TWITTER_ACCESS_TOKEN_SECRET                      │");
+    console.error("  │   Run 'npx replyflow-mcp setup' for interactive      │");
+    console.error("  │   configuration or set env variables.                │");
     console.error("  │                                                      │");
     console.error("  ╰──────────────────────────────────────────────────────╯");
     console.error("");
   }
 
-  if (!hasLlmKey) {
-    console.error("[ReplyFlow] No LLM API key found — replyflow_generate will fail until ANTHROPIC_API_KEY or OPENAI_API_KEY is set.");
-  }
+  return report.ok;
+}
 
-  return ok;
+/**
+ * Returns the user's niche keywords from config, or the defaults.
+ */
+export function getNicheKeywords(config: Config): string[] {
+  if (config.nicheKeywords && config.nicheKeywords.length > 0) {
+    return config.nicheKeywords;
+  }
+  return DEFAULT_CONFIG.nicheKeywords!;
+}
+
+/**
+ * Returns the effective reply style from config.
+ */
+export function getReplyStyle(config: Config): ReplyStyle {
+  return config.replyStyle ?? config.preferredStyle ?? "curious";
 }
