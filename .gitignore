@@ -1,3 +1,7 @@
 node_modules/
 dist/
-*.tgz
+.next/
+.env
+.env.local
+.env.*.local
+*.tsbuildinfo

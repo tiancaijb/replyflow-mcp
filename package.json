@@ -20,8 +20,8 @@
     "reply",
     "independent-developer"
   ],
-  "author": "",
-  "license": "ISC",
+  "author": "tiancaijb",
+  "license": "MIT",
   "files": [
     "dist",
     "README.md"
