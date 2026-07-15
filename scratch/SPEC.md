@@ -1,5 +1,9 @@
 # ReplyFlow MCP Server
 
+> **项目关系**：这是 ReplyFlow 的**产品本体**（MCP Server）。
+> 公开官网在独立的仓库 `~/dev/replyflow/` 中，已部署到 https://replyflow-wine.vercel.app。
+> 官网用于展示产品和收集用户邮箱，MCP Server 是用户实际安装使用的工具。
+
 ## 一句话
 
 ReplyFlow MCP Server 是一个给独立开发者管理 Twitter 回复的 MCP 工具。
