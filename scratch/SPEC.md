@@ -327,3 +327,192 @@ twitter-cli 使用浏览器 Cookie 认证，无需 Twitter API Key，不受 API 
 - 在项目根目录创建 `docs/` 子目录，Vitepress 项目
 - GitHub Actions 部署到 GitHub Pages
 - 文档内容中文为主（与目标用户一致），关键词和 CLI 示例保持英文
+
+---
+
+# Phase 3 — 工程完备化
+
+> Phase 2 补齐了测试、CI/CD、文档。Phase 3 聚焦代码质量基础设施、开发者体验和主动功能。
+
+---
+
+## 方向 1：ESLint + Prettier
+
+### 问题陈述
+
+项目无代码风格统一工具，不同开发者的提交格式不一致。CI 中没有代码质量检查。
+
+### 用户故事
+
+- 作为贡献者，我想在提交时自动格式化代码
+- 作为维护者，我想在 CI 中强制代码风格统一
+
+### 验收标准
+
+- [ ] ESLint flat config（`eslint.config.js`）配置 TypeScript 规则
+- [ ] Prettier 配置（`.prettierrc`）
+- [ ] `package.json` 添加 `lint` 和 `format` 脚本
+- [ ] CI workflow 增加 lint 步骤
+- [ ] 不引入大量外部 ESLint 插件（保持轻量）
+
+### 实施决策
+
+- ESLint flat config（v9+），使用 `@eslint/js` + `typescript-eslint`
+- Prettier 独立于 ESLint（不引入 eslint-plugin-prettier）
+- `npm run format` 调用 Prettier 自动修复
+- `npm run lint` 调用 ESLint 检查
+
+---
+
+## 方向 2：Husky 提交前检查
+
+### 问题陈述
+
+无本地质量门禁。开发者可能在提交有类型错误或 lint 问题的代码，等到 CI 才发现。
+
+### 用户故事
+
+- 作为开发者，我在 `git commit` 时希望自动运行 lint + typecheck，拦截问题于本地
+
+### 验收标准
+
+- [ ] Husky 初始化（`.husky/pre-commit`）
+- [ ] lint-staged 配置：对 staged `.ts` 文件运行 eslint --fix + prettier --write
+- [ ] pre-commit typecheck：`tsc --noEmit`（可使用 tsconfig.build.json 排除测试）
+- [ ] CI 验证 pre-commit hooks 存在
+- [ ] `npm run prepare` 脚本自动安装 Husky
+
+### 实施决策
+
+- Husky v9（latest），使用 `husky init`
+- lint-staged 独立配置在 `package.json` 中
+- 类型检查在 pre-commit 中为可选 warning 模式（不阻塞提交）
+
+---
+
+## 方向 3：主动搜索轮询
+
+### 问题陈述
+
+用户需主动调用 `replyflow_list` 才发现新推文。错过实时讨论机会。
+
+### 用户故事
+
+- 作为用户，我希望服务器在后台自动搜索新推文，有新内容时提醒我
+
+### 验收标准
+
+- [ ] `startServer()` 末尾启动搜索轮询定时器（与跟进检查独立）
+- [ ] 默认间隔：10 分钟，可通过 config `searchInterval` 配置（分钟，0=禁用）
+- [ ] 每次轮询调用 `getTrendingPosts()` 获取新结果
+- [ ] 结果去重：仅提醒新出现的推文（基于 id 去重）
+- [ ] 有新推文时 logger.info：`Found {n} new tweet(s) worth replying — run replyflow_list to view`
+- [ ] 无新内容时 logger.debug 输出
+- [ ] Server shutdown 时清理定时器
+- [ ] 不影响现有 `replyflow_list` tool 行为
+
+### 实施决策
+
+- 新增 `SearchPoller` 类或模块，与 FollowUpChecker 同级
+- 内部维护已见推文 ID 的 Set，用于去重
+- 复用已有的 `getTrendingPosts()` + `getNicheKeywords()`
+
+---
+
+## 方向 4：Docker 支持
+
+### 问题陈述
+
+部分用户希望容器化部署 MCP Server，当前缺少 Dockerfile 和文档。
+
+### 用户故事
+
+- 作为用户，我想用 Docker 运行 ReplyFlow，避免全局安装 Node.js
+
+### 验收标准
+
+- [ ] `Dockerfile` 多阶段构建（build → production）
+- [ ] 基于 Node 22 Alpine 最小化镜像
+- [ ] `.dockerignore` 排除不必要的文件
+- [ ] `docker-compose.yml` 本地开发示例
+- [ ] README 添加 Docker 使用说明
+
+### 实施决策
+
+- 多阶段构建：`node:22-alpine` → `npm ci && npm run build` → `node:22-alpine` (production)
+- CMD 启动 MCP Server
+- docker-compose 仅做参考，不引入复杂编排
+
+---
+
+## 方向 5：CLI 参数增强
+
+### 问题陈述
+
+当前 CLI 参数解析是手写的 `process.argv.slice(2)`，不支持 `--version`、命令嵌套、参数校验。
+
+### 用户故事
+
+- 作为用户，我想用 `replyflow-mcp --version` 查看版本
+- 作为用户，输入错误命令时看到友好提示而非静默启动
+
+### 验收标准
+
+- [ ] 引入 commander（或 yargs）作为 CLI 框架
+- [ ] 子命令：`replyflow-mcp start`（默认，启动 MCP）、`replyflow-mcp setup`（交互式配置）、`replyflow-mcp --version`
+- [ ] 参数校验：未知命令提示 `Unknown command` + 帮助信息
+- [ ] 向后兼容：`replyflow-mcp`（无参数）= `replyflow-mcp start`
+
+### 实施决策
+
+- 使用 commander（最流行的 Node.js CLI 框架）
+- 大幅修改 `main()` 函数结构
+- 保持 `setup` 子命令行为不变
+
+---
+
+## 方向 6：依赖安全审计
+
+### 问题陈述
+
+项目无自动化依赖安全扫描，`npm audit` 可能发现漏洞而不自知。
+
+### 用户故事
+
+- 作为维护者，我希望依赖更新时自动收到 PR，减少手动检查
+
+### 验收标准
+
+- [ ] `.github/dependabot.yml` 配置 weekly npm 依赖更新
+- [ ] `npm audit` 在 CI 中运行（不阻塞构建，仅 warning）
+- [ ] 确认当前 `npm audit` 无 high/critical 漏洞
+
+### 实施决策
+
+- Dependabot 配置为 weekly 更新，group 批量 PR
+- CI 中 `npm audit --audit-level=high` 作为独立 job（不阻塞）
+
+---
+
+## 方向 7：TypeScript 强化
+
+### 问题陈述
+
+当前 `tsconfig.json` 已启用 `strict: true`，但可进一步启用更细粒度的严格选项。
+
+### 用户故事
+
+- 作为开发者，我希望编译器捕获更多潜在错误
+
+### 验收标准
+
+- [ ] 启用 `noUncheckedIndexedAccess`（索引访问返回 `T | undefined`）
+- [ ] 修复所有新增的类型错误
+- [ ] 测试全部通过
+- [ ] 构建通过
+
+### 实施决策
+
+- 逐个启用严格选项，每次修复所有错误
+- 先启用 `noUncheckedIndexedAccess`（影响最大），其余按需
+- `exactOptionalPropertyTypes` 暂不启用（影响 config 接口）

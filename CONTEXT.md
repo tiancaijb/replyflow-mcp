@@ -88,6 +88,65 @@
 | **使用示例** | MCP 客户端（Claude Code / Cursor / pi-agent）配置示例 |
 | **截图/GIF** | 操作演示 |
 
+## 7 个新方向的领域术语
+
+### 1. ESLint + Prettier
+
+| 术语 | 说明 |
+|------|------|
+| **ESLint** | TypeScript 代码静态检查工具 |
+| **Prettier** | 代码格式化工具 |
+| **flat config** | ESLint 新版扁平配置格式（eslint.config.js） |
+| **lint-staged** | 只对 staged 文件运行 linter |
+
+### 2. Husky 提交前检查
+
+| 术语 | 说明 |
+|------|------|
+| **Husky** | Git hooks 管理工具 |
+| **pre-commit hook** | 提交前自动运行 lint + typecheck |
+| **lint-staged** | 仅对暂存文件运行检查，避免全量扫描 |
+
+### 3. 主动搜索轮询
+
+| 术语 | 说明 |
+|------|------|
+| **Search Polling** | 后台定时搜索新推文，与 followup 检查分离 |
+| **轮询间隔** | 独立于 followupInterval 的搜索间隔 |
+| **新内容提醒** | logger.info 输出新发现推文数量 |
+
+### 4. Docker 支持
+
+| 术语 | 说明 |
+|------|------|
+| **Dockerfile** | 多阶段构建（build → run） |
+| **docker-compose** | 本地开发编排 |
+| **Alpine** | 最小化基础镜像 |
+
+### 5. CLI 参数增强
+
+| 术语 | 说明 |
+|------|------|
+| **Commander** | Node.js CLI 框架，参数解析 + help 生成 |
+| **子命令** | 将 `setup` / `--help` 改为 commander 的子命令 |
+| **Env 集成** | 环境变量自动映射到 CLI 参数 |
+
+### 6. 依赖安全审计
+
+| 术语 | 说明 |
+|------|------|
+| **npm audit** | 依赖漏洞扫描 |
+| **Dependabot** | GitHub 自动依赖更新 PR |
+| **supports-color** | 间接依赖颜色库，可删除 |
+
+### 7. TypeScript 强化
+
+| 术语 | 说明 |
+|------|------|
+| **noUncheckedIndexedAccess** | 索引访问返回 `T \| undefined` |
+| **exactOptionalPropertyTypes** | 精确可选属性类型检查 |
+| **noPropertyAccessFromIndexSignature** | 禁用 `.` 访问索引签名属性 |
+
 ## 架构决策
 
 ### ADR-0001: twitter-cli 作为数据后端
