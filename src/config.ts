@@ -41,6 +41,11 @@ export interface Config {
   language?: string;
   /** Log level for the structured logger (overrides LOG_LEVEL env var). */
   logLevel?: LogLevel;
+  /**
+   * Cache TTL for twitter-cli search results (in seconds).
+   * Default: 60. Set to 0 to disable caching entirely.
+   */
+  cacheTTL?: number;
 }
 
 const DEFAULT_CONFIG: Config = {
@@ -87,6 +92,14 @@ export function setActiveAccount(account: string): void {
     mkdirSync(CONFIG_DIR, { recursive: true });
   }
   writeFileSync(ACTIVE_ACCOUNT_PATH, account, "utf-8");
+
+  // Clear all caches — new account means different search results and identity
+  try {
+    const { cache } = require("./cache.js");
+    cache.clear();
+  } catch {
+    // cache module may not be available in all contexts
+  }
 }
 
 /**

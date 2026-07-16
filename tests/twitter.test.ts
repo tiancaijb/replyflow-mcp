@@ -19,6 +19,7 @@ vi.mock("child_process", () => {
 
 import { spawnSync } from "child_process";
 import { mergeAndSort, getTrendingPosts, getTweetWithReplies } from "../src/twitter.js";
+import { cache } from "../src/cache.js";
 import type { TweetData } from "../src/twitter.js";
 import type { Config } from "../src/config.js";
 
@@ -127,6 +128,7 @@ function makeTimeoutResult(): ReturnType<typeof spawnSync> {
 describe("twitter", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    cache.clear(); // Clear singleton cache to avoid cross-test contamination
   });
 
   describe("mergeAndSort", () => {

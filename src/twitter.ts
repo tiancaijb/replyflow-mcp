@@ -1,6 +1,7 @@
 import { spawnSync } from "child_process";
 import { Config, getNicheKeywords } from "./config.js";
 import logger from "./logger.js";
+import { cache } from "./cache.js";
 import {
   CliError,
   CliTimeoutError,
@@ -210,33 +211,61 @@ function runTwitter(args: string[], options?: { timeout?: number }): CliResponse
   throw lastError ?? new CliError("Twitter CLI failed after multiple retries");
 }
 
-// ── Cached values ────────────────────────────────────────────────────────────
+// ── Cache integration ─────────────────────────────────────────────────────────
 
-let _me: { id: string; username: string } | null = null;
+const ACCOUNT_CACHE_TTL = 300_000; // 5 minutes for whoami
 
 /**
- * Resets cached client (useful when config changes at runtime).
+ * Build a cache key for the search given the current account and keywords.
+ */
+function searchCacheKey(account: string, keywords: string[]): string {
+  return `search:${account}:${[...keywords].sort().join(",")}`;
+}
+
+/**
+ * Build a cache key for the whoami result.
+ */
+function meCacheKey(account: string): string {
+  return `me:${account}`;
+}
+
+/**
+ * Resets all caches (useful when config changes at runtime).
  */
 export function resetClient(): void {
-  _me = null;
+  cache.clear();
 }
 
 // ── Whoami ───────────────────────────────────────────────────────────────────
 
 /**
  * Get the authenticated user's id and username.
+ * Results are cached per account for 5 minutes.
  */
 function getMe(): { id: string; username: string } {
-  if (_me) {
-    logger.debug("Using cached whoami");
-    return _me;
-  }
+  const account = _resolveAccount();
+  const key = meCacheKey(account);
+  const cached = cache.get<{ id: string; username: string }>(key);
+  if (cached) return cached;
 
   logger.debug("Fetching whoami from twitter-cli");
   const result = runTwitter(["whoami", "--json"]);
   const data = result.data as { user: { id: string; name: string; username: string; screenName: string } };
-  _me = { id: data.user.id, username: data.user.screenName };
-  return _me;
+  const me = { id: data.user.id, username: data.user.screenName };
+  cache.set(key, me, ACCOUNT_CACHE_TTL);
+  return me;
+}
+
+/**
+ * Resolve current account name for cache key purposes.
+ */
+function _resolveAccount(): string {
+  try {
+    const { getActiveAccount } = require("./config.js");
+    return getActiveAccount() || "default";
+  } catch {
+    return "default";
+  }
 }
 
 // ── Tweet conversion ─────────────────────────────────────────────────────────
@@ -296,6 +325,12 @@ export function getTrendingPosts(
   // Build query string: terms joined with OR
   const query = terms.map((k) => `"${k}"`).join(" OR ");
 
+  // Check cache
+  const account = _resolveAccount();
+  const cacheKey = searchCacheKey(account, terms);
+  const cached = cache.get<TweetData[]>(cacheKey);
+  if (cached) return cached;
+
   logger.debug(`Searching tweets for: ${query}`);
 
   try {
@@ -312,8 +347,13 @@ export function getTrendingPosts(
     }
 
     const tweets = result.data as CliTweetData[];
-    logger.debug(`Got ${tweets.length} search results`);
-    return tweets.map((t) => toTweetData(t, "search"));
+    const mapped = tweets.map((t) => toTweetData(t, "search"));
+    logger.debug(`Got ${mapped.length} search results (caching)`);
+
+    // Cache the result
+    cache.set(cacheKey, mapped);
+
+    return mapped;
   } catch (err) {
     logger.error(`Search failed: ${formatCliError(err)}`);
     return [];
