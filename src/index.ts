@@ -77,6 +77,31 @@ async function startServer() {
     },
   );
 
+  // ── Resources ────────────────────────────────────────────────────────
+  server.resource("replyflow-config", "replyflow://config", async (uri) => ({
+    contents: [
+      {
+        uri: uri.href,
+        mimeType: "application/json",
+        text: JSON.stringify(getEffectiveConfig(), null, 2),
+      },
+    ],
+  }));
+
+  server.resource(
+    "replyflow-history-recent",
+    "replyflow://history/recent",
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "application/json",
+          text: JSON.stringify(readHistory(undefined, 20), null, 2),
+        },
+      ],
+    }),
+  );
+
   // ── Startup check ────────────────────────────────────────────────────
   const config = getEffectiveConfig();
   const integrity = checkConfigIntegrity(config);
