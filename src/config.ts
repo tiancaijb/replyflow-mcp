@@ -48,6 +48,12 @@ export interface Config {
    * Set to 0 to disable. Default: 5.
    */
   followupInterval?: number;
+  /**
+   * Interval for proactive tweet search polling (in minutes).
+   * When set, the server periodically searches for new tweets worth replying to.
+   * Set to 0 to disable. Default: 10.
+   */
+  searchInterval?: number;
 }
 
 const DEFAULT_CONFIG: Config = {

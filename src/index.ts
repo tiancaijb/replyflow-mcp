@@ -12,7 +12,7 @@ import {
   setActiveAccount,
 } from "./config.js";
 import logger from "./logger.js";
-import { list, resetClient } from "./twitter.js";
+import { list, resetClient, getTrendingPosts } from "./twitter.js";
 import {
   appendHistory,
   readHistory,
@@ -575,6 +575,9 @@ async function startServer() {
 
   // ── Follow-up checker (background polling) ───────────────────────────
   startFollowUpChecker(config);
+
+  // ── Search poller (proactive tweet discovery) ────────────────────────
+  startSearchPoller(config);
 }
 
 // ── Follow-up checker ──────────────────────────────────────────────────────────
@@ -624,6 +627,74 @@ function startFollowUpChecker(
   const cleanup = () => {
     clearInterval(timerId);
     logger.debug("Follow-up checker stopped");
+  };
+
+  process.on("SIGINT", cleanup);
+  process.on("SIGTERM", cleanup);
+}
+
+// ── Search poller ────────────────────────────────────────────────────────────────
+
+/**
+ * Start a background timer that periodically searches for new tweets
+ * worth replying to, using the active project's keywords.
+ *
+ * Interval controlled by `config.searchInterval` (minutes).
+ * Set to 0 or omit to disable.
+ */
+function startSearchPoller(
+  config: ReturnType<typeof getEffectiveConfig>,
+): void {
+  const intervalMin = config.searchInterval ?? 10;
+
+  if (intervalMin <= 0) {
+    logger.info("Search poller disabled (searchInterval <= 0)");
+    return;
+  }
+
+  const intervalMs = intervalMin * 60 * 1000;
+  logger.info(`Search poller enabled (interval: ${intervalMin}min)`);
+
+  // Track seen tweet IDs to avoid duplicate notifications
+  const seenIds = new Set<string>();
+
+  const timerId = setInterval(async () => {
+    try {
+      const cfg = getEffectiveConfig();
+      const tweets = getTrendingPosts(cfg);
+
+      if (tweets.length === 0) {
+        logger.debug("Search poller: no tweets found");
+        return;
+      }
+
+      // Filter to only new (unseen) tweets
+      const newTweets = tweets.filter((t) => !seenIds.has(t.id));
+
+      // Track all returned tweets to avoid re-alerting
+      for (const t of tweets) {
+        seenIds.add(t.id);
+      }
+
+      if (newTweets.length === 0) {
+        logger.debug("Search poller: no new tweets since last poll");
+        return;
+      }
+
+      logger.info(
+        `Found ${newTweets.length} new tweet(s) worth replying — run replyflow_list to view`,
+      );
+    } catch (err) {
+      logger.error(
+        `Search poller failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }, intervalMs);
+
+  // Clean up on shutdown
+  const cleanup = () => {
+    clearInterval(timerId);
+    logger.debug("Search poller stopped");
   };
 
   process.on("SIGINT", cleanup);
