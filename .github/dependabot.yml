@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      dev-dependencies:
+        applies-to: "version-updates"
+        dependency-type: "development"
+        patterns:
+          - "*"
+      production-dependencies:
+        applies-to: "version-updates"
+        dependency-type: "production"
+        patterns:
+          - "*"
