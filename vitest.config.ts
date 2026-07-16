@@ -13,5 +13,16 @@ export default defineConfig({
     onConsoleLog(_log, _type) {
       return false;
     },
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.ts"],
+      exclude: ["src/index.ts"],
+      thresholds: {
+        branches: 70,
+        functions: 70,
+        lines: 80,
+        statements: 80,
+      },
+    },
   },
 });
