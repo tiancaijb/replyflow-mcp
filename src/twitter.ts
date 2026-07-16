@@ -1,6 +1,14 @@
 import { spawnSync } from "child_process";
 import { Config, getNicheKeywords } from "./config.js";
 import logger from "./logger.js";
+import {
+  CliError,
+  CliTimeoutError,
+  CliNetworkError,
+  CliParseError,
+  classifyCliError,
+  getUserFriendlyMessage,
+} from "./errors.js";
 
 // ── Public types ─────────────────────────────────────────────────────────────
 
@@ -80,30 +88,126 @@ interface CliTweetData {
   };
 }
 
+// ── Sync sleep helper ─────────────────────────────────────────────────────────
+
+/**
+ * Synchronous sleep for retry backoff.
+ * Only used on error paths (network retries), never during normal operation.
+ */
+function sleepSync(ms: number): void {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    /* busy-wait — acceptable on error paths */
+  }
+}
+
+// ── Error formatting helper ───────────────────────────────────────────────────
+
+/**
+ * Format an unknown error into a user-friendly string.
+ * Prefers CliError's getUserFriendlyMessage, falls back to Error.message.
+ */
+function formatCliError(err: unknown): string {
+  if (err instanceof CliError) return getUserFriendlyMessage(err);
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
 // ── CLI execution helper ─────────────────────────────────────────────────────
 
 /**
  * Run a twitter CLI command and return parsed JSON.
- * Throws if the command fails or returns non-JSON output.
+ *
+ * Features:
+ * - Timeout control (default 30s)
+ * - Automatic retry with exponential backoff for network errors
+ * - Error classification into typed CliError subclasses
+ * - User-friendly error messages
+ *
+ * Throws a classified CliError on failure.
  */
-function runTwitter(args: string[]): CliResponse {
-  try {
-    logger.debug(`Running: twitter ${args.slice(0, 3).join(" ")}...`);
-    const result = spawnSync("twitter", args, {
-      encoding: "utf-8",
-      maxBuffer: 10 * 1024 * 1024,
-      shell: false,
-    });
-    if (result.error) throw result.error;
-    const output = result.stdout;
-    return JSON.parse(output) as CliResponse;
-  } catch (err) {
-    logger.error(`twitter CLI error: ${err instanceof Error ? err.message : String(err)}`);
-    if (err instanceof Error) {
-      throw new Error(`twitter CLI error: ${err.message}`);
+function runTwitter(args: string[], options?: { timeout?: number }): CliResponse {
+  const timeout = options?.timeout ?? 30000;
+  const maxRetries = 2;
+  const retryDelays = [1000, 3000];
+  let lastError: CliError | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    // Sleep before retries (not before first attempt)
+    if (attempt > 0) {
+      const delay = retryDelays[attempt - 1] ?? retryDelays[retryDelays.length - 1];
+      logger.debug(`Retry ${attempt}/${maxRetries} after ${delay}ms`);
+      sleepSync(delay);
     }
-    throw err;
+
+    try {
+      logger.debug(`Running: twitter ${args.slice(0, 3).join(" ")}...`);
+      const result = spawnSync("twitter", args, {
+        encoding: "utf-8",
+        maxBuffer: 10 * 1024 * 1024,
+        shell: false,
+        timeout,
+      });
+
+      // ── Spawn error (process never ran) ────────────────────────────
+      if (result.error) {
+        const classified = classifyCliError(
+          result.error,
+          result.stderr,
+          result.status,
+          result.signal,
+        );
+
+        // Recoverable: retry network errors
+        if (classified instanceof CliNetworkError && attempt < maxRetries) {
+          lastError = classified;
+          continue;
+        }
+        throw classified;
+      }
+
+      // ── Timeout (process killed by signal) ─────────────────────────
+      if (result.signal === "SIGTERM" && result.status === null) {
+        throw new CliTimeoutError(
+          `Twitter CLI timed out after ${timeout / 1000}s`,
+          timeout,
+        );
+      }
+
+      // ── Non-zero exit code ────────────────────────────────────────
+      if (result.status !== 0) {
+        const classified = classifyCliError(
+          null,
+          result.stderr,
+          result.status,
+          result.signal,
+        );
+        // Auth, rate-limit, and generic errors are not retried
+        throw classified;
+      }
+
+      // ── Success — parse JSON ──────────────────────────────────────
+      try {
+        return JSON.parse(result.stdout) as CliResponse;
+      } catch (parseErr) {
+        throw new CliParseError(
+          `Failed to parse twitter-cli output: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`,
+        );
+      }
+    } catch (err) {
+      // Recoverable: retry network errors (outer catch catches CliNetworkError
+      // that could come from classifyCliError or from JSON.parse wrapping)
+      if (err instanceof CliNetworkError && attempt < maxRetries) {
+        lastError = err;
+        continue;
+      }
+      // All other errors (auth, timeout, rate-limit, parse, unknown) propagate
+      throw err;
+    }
   }
+
+  // All retries exhausted
+  throw lastError ?? new CliError("Twitter CLI failed after multiple retries");
 }
 
 // ── Cached values ────────────────────────────────────────────────────────────
@@ -211,7 +315,7 @@ export function getTrendingPosts(
     logger.debug(`Got ${tweets.length} search results`);
     return tweets.map((t) => toTweetData(t, "search"));
   } catch (err) {
-    logger.error(`Search failed: ${err instanceof Error ? err.message : String(err)}`);
+    logger.error(`Search failed: ${formatCliError(err)}`);
     return [];
   }
 }
@@ -271,7 +375,7 @@ export function getTweetWithReplies(tweetId: string): CliTweetData[] {
     }
     return result.data as CliTweetData[];
   } catch (err) {
-    logger.error(`Failed to fetch tweet ${tweetId}: ${err instanceof Error ? err.message : String(err)}`);
+    logger.error(`Failed to fetch tweet ${tweetId}: ${formatCliError(err)}`);
     return [];
   }
 }
@@ -310,8 +414,7 @@ export async function list(
       // Not critical
     }
   } catch (err) {
-    result.error =
-      err instanceof Error ? err.message : "Unknown Twitter CLI error";
+    result.error = formatCliError(err);
   }
 
   return result;

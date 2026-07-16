@@ -1,0 +1,24 @@
+ticket-0015:
+  • Code Review → 退出码 1
+  有 4 个具体问题，以下逐一列出并提供修改建议。
+
+---
+
+## 问题 1：重复的错误消息格式化逻辑（3 处复制粘贴）
+
+在 `getTrendingPosts`、`getTweetWithReplies`、`list` 中重复：
+
+**当前代码（3 处）：**
+```typescript
+// getTrendingPosts L290-294
+const msg = err instanceof CliError
+  ? getUserFriendlyMessage(err)
+  : err instanceof Error ? err.message : String(err);
+
+// getTweetWithReplies L366-371
+const msg = err instanceof CliError
+  ? getUserFriendlyMessage(err)
+  : err instanceof Error ? err.message : String(err);
+
+// list L405-412
+result.error = err instanceof
