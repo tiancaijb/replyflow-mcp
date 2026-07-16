@@ -66,6 +66,16 @@ function getNextId(entries: HistoryEntry[]): number {
  * Append a new history entry (called when user copies a reply).
  * Returns the created entry for feedback.
  */
+/**
+ * Append a new history entry (called when user copies a reply).
+ * @param text - The reply text.
+ * @param tweetId - ID of the tweet being replied to.
+ * @param style - Reply style used.
+ * @param account - Account name.
+ * @param conversationId - Thread/conversation ID.
+ * @param inReplyToTweetId - ID of the specific tweet replying to.
+ * @returns The created entry.
+ */
 export function appendHistory(
   text: string,
   tweetId?: string,
@@ -99,6 +109,13 @@ export function appendHistory(
  * Read history entries, sorted by most recent first.
  * Optionally filter by tweetId, status and limit count.
  */
+/**
+ * Read history entries, newest first.
+ * @param tweetId - Optional filter by tweet ID.
+ * @param limit - Max entries (default 20).
+ * @param status - Optional status filter.
+ * @returns Filtered entries.
+ */
 export function readHistory(
   tweetId?: string,
   limit = 20,
@@ -124,6 +141,10 @@ export function readHistory(
 
 /**
  * Get the set of tweet IDs that have been replied to.
+ */
+/**
+ * Get set of tweet IDs that have been replied to.
+ * @returns Set of tweet IDs.
  */
 export function getRepliedTweetIds(): Set<string> {
   const entries = readAllEntries();

@@ -24,6 +24,7 @@ interface CacheEntry<T> {
 
 // ── CacheStore ───────────────────────────────────────────────────────────────
 
+/** In-memory TTL cache. Thread-safe for single-thread Node.js. */
 export class CacheStore {
   private store = new Map<string, CacheEntry<unknown>>();
   private defaultTTL: number;

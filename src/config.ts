@@ -79,6 +79,10 @@ export const ACTIVE_ACCOUNT_PATH = join(CONFIG_DIR, "active_account");
  * Read the currently active account name from ~/.replyflow/active_account.
  * Returns undefined if no account is active or the file doesn't exist.
  */
+/**
+ * Read the active account name from ~/.replyflow/active_account.
+ * @returns Account name or undefined.
+ */
 export function getActiveAccount(): string | undefined {
   try {
     if (existsSync(ACTIVE_ACCOUNT_PATH)) {
@@ -94,6 +98,10 @@ export function getActiveAccount(): string | undefined {
 /**
  * Set the active account by writing to ~/.replyflow/active_account.
  * Creates the config directory if it doesn't exist.
+ */
+/**
+ * Set the active account. Clears all caches on switch.
+ * @param account - Account name.
  */
 export function setActiveAccount(account: string): void {
   if (!existsSync(CONFIG_DIR)) {
@@ -117,6 +125,10 @@ export function setActiveAccount(account: string): void {
  * Note: Config is no longer account-scoped. The active account is only
  * used for twitter-cli authentication, not for config routing.
  */
+/**
+ * Get the effective config, merged with defaults.
+ * @returns Config object.
+ */
 export function getEffectiveConfig(): Config {
   return getConfig();
 }
@@ -126,6 +138,11 @@ export function getEffectiveConfig(): Config {
  *
  * Note: Config is no longer account-scoped. All updates go to the single
  * config file regardless of the active twitter account.
+ */
+/**
+ * Merge partial config and persist to disk.
+ * @param partial - Fields to update.
+ * @returns Updated config.
  */
 export function updateEffectiveConfig(partial: Partial<Config>): Config {
   return updateConfig(partial);
@@ -138,6 +155,10 @@ export function updateEffectiveConfig(partial: Partial<Config>): Config {
  * If the file doesn't exist, returns the default config (does not throw).
  *
  * Note: For account-aware config reading, use getEffectiveConfig() instead.
+ */
+/**
+ * Read raw config from file. Returns defaults on error.
+ * @returns Config object.
  */
 export function getConfig(): Config {
   if (!existsSync(CONFIG_PATH)) {
@@ -158,6 +179,11 @@ export function getConfig(): Config {
 
 // ── Write / Update ──────────────────────────────────────────────────────────
 
+/**
+ * Low-level write: merge partial into config file.
+ * @param partial - Fields to merge.
+ * @returns Updated config.
+ */
 export function updateConfig(partial: Partial<Config>): Config {
   const current = getConfig();
   const updated: Config = { ...current, ...partial };

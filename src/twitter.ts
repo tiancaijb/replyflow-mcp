@@ -243,6 +243,7 @@ function meCacheKey(account: string): string {
 /**
  * Resets all caches (useful when config changes at runtime).
  */
+/** Clear all caches (whoami, search results). */
 export function resetClient(): void {
   cache.clear();
 }
@@ -324,6 +325,12 @@ function toTweetData(
 /**
  * Search for niche-relevant tweets by keywords.
  */
+/**
+ * Search for niche-relevant tweets.
+ * @param config - App config (for keywords).
+ * @param keywords - Optional override keywords.
+ * @returns Array of tweet data.
+ */
 export function getTrendingPosts(
   config: Config,
   keywords?: string[],
@@ -383,6 +390,11 @@ export function getTrendingPosts(
 /**
  * Merge multiple arrays of tweets, remove duplicates (by id),
  * and sort by interaction count descending.
+ */
+/**
+ * Merge tweet arrays, deduplicate by id, sort by interaction count.
+ * @param sources - One or more tweet arrays.
+ * @returns Merged and sorted array.
  */
 export function mergeAndSort(...sources: TweetData[][]): TweetData[] {
   const seen = new Set<string>();
