@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  replyflow:
+    build: .
+    image: replyflow-mcp:latest
+    container_name: replyflow-mcp
+    stdin_open: true
+    tty: true
+    volumes:
+      # Persist config and history
+      - ~/.replyflow:/root/.replyflow
+    environment:
+      - LOG_LEVEL=info

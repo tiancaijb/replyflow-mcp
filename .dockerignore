@@ -1,0 +1,17 @@
+node_modules/
+dist/
+src/
+tests/
+docs/
+scratch/
+scripts/
+.git/
+.github/
+CONTEXT.md
+vitest.config.ts
+tsconfig.json
+tsconfig.lint.json
+eslint.config.mjs
+.prettierrc
+.prettierignore
+.husky/

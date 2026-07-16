@@ -127,6 +127,24 @@ npx replyflow-mcp setup
 
 配置保存在 `~/.replyflow/config.json`。
 
+### Docker
+
+```bash
+# 构建镜像
+docker build -t replyflow-mcp .
+
+# 运行 MCP Server（挂载配置目录）
+docker run -i --rm \
+  -v ~/.replyflow:/root/.replyflow \
+  replyflow-mcp
+```
+
+或者用 docker-compose：
+
+```bash
+docker compose up -d
+```
+
 ## MCP 客户端配置
 
 ### Cursor / Claude Code / Windsurf / pi-agent
