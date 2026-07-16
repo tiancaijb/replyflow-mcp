@@ -1,0 +1,8 @@
+src/
+tests/
+scratch/
+scripts/
+CONTEXT.md
+vitest.config.ts
+tsconfig.json
+.github/
