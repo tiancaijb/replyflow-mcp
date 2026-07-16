@@ -1,5 +1,10 @@
 # ReplyFlow MCP Server
 
+[![CI](https://github.com/tiancaijb/replyflow-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/tiancaijb/replyflow-mcp/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/replyflow-mcp)](https://www.npmjs.com/package/replyflow-mcp)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[📖 文档站](https://tiancaijb.github.io/replyflow-mcp/)
+
 > 给独立开发者用的 Twitter 回复管理 MCP 工具。
 > 配置你的项目 → AI agent 自动找到相关讨论 → 你自然地参与交流。
 
