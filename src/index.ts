@@ -546,6 +546,60 @@ async function startServer() {
   await server.connect(transport);
   logger.info("SERVER_STARTED");
   logger.info("MCP server running on stdio");
+
+  // ── Follow-up checker (background polling) ───────────────────────────
+  startFollowUpChecker(config);
+}
+
+// ── Follow-up checker ──────────────────────────────────────────────────────────
+
+/**
+ * Start a background timer that periodically checks for new replies
+ * on tweets we've sent replies to.
+ *
+ * The interval is controlled by `config.followupInterval` (minutes).
+ * Set to 0 or omit to disable.
+ */
+function startFollowUpChecker(config: ReturnType<typeof getEffectiveConfig>): void {
+  const intervalMin = config.followupInterval ?? 5;
+
+  if (intervalMin <= 0) {
+    logger.info("Follow-up checker disabled (followupInterval <= 0)");
+    return;
+  }
+
+  const intervalMs = intervalMin * 60 * 1000;
+  logger.info(`Follow-up checker enabled (interval: ${intervalMin}min)`);
+
+  const timerId = setInterval(async () => {
+    try {
+      const newlyReplied = checkForReplies();
+
+      if (newlyReplied.length === 0) {
+        logger.debug("Follow-up check: no new replies");
+        return;
+      }
+
+      for (const entry of newlyReplied) {
+        logger.info(
+          `Found 1 new reply on tweet ${entry.tweetId} — run replyflow_followups to view`,
+        );
+      }
+    } catch (err) {
+      logger.error(
+        `Follow-up check failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }, intervalMs);
+
+  // Clean up on shutdown
+  const cleanup = () => {
+    clearInterval(timerId);
+    logger.debug("Follow-up checker stopped");
+  };
+
+  process.on("SIGINT", cleanup);
+  process.on("SIGTERM", cleanup);
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────

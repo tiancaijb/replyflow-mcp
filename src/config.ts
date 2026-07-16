@@ -46,6 +46,12 @@ export interface Config {
    * Default: 60. Set to 0 to disable caching entirely.
    */
   cacheTTL?: number;
+  /**
+   * Interval for automatic follow-up checks (in minutes).
+   * When set, the server periodically checks for new replies on sent tweets.
+   * Set to 0 to disable. Default: 5.
+   */
+  followupInterval?: number;
 }
 
 const DEFAULT_CONFIG: Config = {
