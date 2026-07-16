@@ -147,7 +147,7 @@ function runTwitter(
     // Sleep before retries (not before first attempt)
     if (attempt > 0) {
       const delay =
-        retryDelays[attempt - 1] ?? retryDelays[retryDelays.length - 1];
+        retryDelays[attempt - 1] ?? retryDelays[retryDelays.length - 1]!;
       logger.debug(`Retry ${attempt}/${maxRetries} after ${delay}ms`);
       sleepSync(delay);
     }

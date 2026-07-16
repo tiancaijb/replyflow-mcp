@@ -198,14 +198,15 @@ async function stepReplyStyle(rl: ReadlineInterface): Promise<ReplyStyle> {
   console.log("  How would you like your replies to sound by default?");
   console.log("");
 
-  for (let i = 0; i < STYLES.length; i++) {
-    console.log(`    ${i + 1}. ${STYLES[i].key} — ${STYLES[i].desc}`);
-  }
+  STYLES.forEach((s, i) => {
+    console.log(`    ${i + 1}. ${s.key} — ${s.desc}`);
+  });
   console.log("");
 
   const choice = await askWithDefault(rl, "  Select [1-5] (default: 1): ", "1");
   const idx = Math.max(0, Math.min(parseInt(choice) - 1, STYLES.length - 1));
-  return STYLES[idx].key;
+  const style = STYLES[idx];
+  return style!.key;
 }
 
 // ── Main entry ───────────────────────────────────────────────────────────────
