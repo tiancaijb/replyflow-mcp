@@ -6,3 +6,5 @@ CONTEXT.md
 vitest.config.ts
 tsconfig.json
 .github/
+**/*.js.map
+**/*.d.ts.map
