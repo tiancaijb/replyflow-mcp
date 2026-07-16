@@ -24,40 +24,42 @@ import {
 // ── CLI entry ────────────────────────────────────────────────────────────────
 
 /**
- * Main entry point. Dispatches based on CLI args:
- *   - `replyflow-mcp setup`     → interactive setup
- *   - `replyflow-mcp --help`    → help text
- *   - `replyflow-mcp`           → start MCP server
+ * Main entry point. Uses commander for CLI argument parsing.
+ *
+ * Subcommands:
+ *   start (default)  — Start MCP Server
+ *   setup            — Run interactive configuration
  */
 async function main() {
-  const args = process.argv.slice(2);
+  // Dynamic import: commander is ESM-only, project is CJS
+  const { Command } = await import("commander");
+  const program = new Command();
 
-  // ── Setup mode ───────────────────────────────────────────────────────
-  if (args[0] === "setup") {
-    const { runInteractiveSetup } = await import("./setup.js");
-    const ok = await runInteractiveSetup();
-    process.exit(ok ? 0 : 1);
-  }
+  program
+    .name("replyflow-mcp")
+    .description("ReplyFlow MCP Server — manage Twitter replies naturally")
+    .version("1.0.0");
 
-  // ── Help ─────────────────────────────────────────────────────────────
-  if (args[0] === "--help" || args[0] === "-h") {
-    console.log("");
-    console.log("  ReplyFlow MCP Server");
-    console.log("");
-    console.log("  Usage:");
-    console.log(
-      "    npx replyflow-mcp                        Start MCP server (stdio)",
-    );
-    console.log(
-      "    npx replyflow-mcp setup                  Run interactive configuration",
-    );
-    console.log("    npx replyflow-mcp --help                 Show this help");
-    console.log("");
-    process.exit(0);
-  }
+  // ── setup subcommand ─────────────────────────────────────────────────
+  program
+    .command("setup")
+    .description("Run interactive configuration")
+    .action(async () => {
+      const { runInteractiveSetup } = await import("./setup.js");
+      const ok = await runInteractiveSetup();
+      process.exit(ok ? 0 : 1);
+    });
 
-  // ── MCP Server mode ──────────────────────────────────────────────────
-  await startServer();
+  // ── start subcommand (default) ───────────────────────────────────────
+  program
+    .command("start", { isDefault: true })
+    .description("Start MCP Server (stdio)")
+    .action(async () => {
+      await startServer();
+    });
+
+  // ── Parse args ───────────────────────────────────────────────────────
+  await program.parseAsync(process.argv);
 }
 
 // ── Server ───────────────────────────────────────────────────────────────────
