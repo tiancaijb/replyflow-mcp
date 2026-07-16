@@ -1,5 +1,6 @@
 import { spawnSync } from "child_process";
 import { Config, getNicheKeywords } from "./config.js";
+import logger from "./logger.js";
 
 // ── Public types ─────────────────────────────────────────────────────────────
 
@@ -87,6 +88,7 @@ interface CliTweetData {
  */
 function runTwitter(args: string[]): CliResponse {
   try {
+    logger.debug(`Running: twitter ${args.slice(0, 3).join(" ")}...`);
     const result = spawnSync("twitter", args, {
       encoding: "utf-8",
       maxBuffer: 10 * 1024 * 1024,
@@ -96,6 +98,7 @@ function runTwitter(args: string[]): CliResponse {
     const output = result.stdout;
     return JSON.parse(output) as CliResponse;
   } catch (err) {
+    logger.error(`twitter CLI error: ${err instanceof Error ? err.message : String(err)}`);
     if (err instanceof Error) {
       throw new Error(`twitter CLI error: ${err.message}`);
     }
@@ -120,8 +123,12 @@ export function resetClient(): void {
  * Get the authenticated user's id and username.
  */
 function getMe(): { id: string; username: string } {
-  if (_me) return _me;
+  if (_me) {
+    logger.debug("Using cached whoami");
+    return _me;
+  }
 
+  logger.debug("Fetching whoami from twitter-cli");
   const result = runTwitter(["whoami", "--json"]);
   const data = result.data as { user: { id: string; name: string; username: string; screenName: string } };
   _me = { id: data.user.id, username: data.user.screenName };
@@ -185,6 +192,8 @@ export function getTrendingPosts(
   // Build query string: terms joined with OR
   const query = terms.map((k) => `"${k}"`).join(" OR ");
 
+  logger.debug(`Searching tweets for: ${query}`);
+
   try {
     const result = runTwitter([
       "search", "--json", "-t", "latest", "-n", "20",
@@ -193,11 +202,16 @@ export function getTrendingPosts(
       query,
     ]);
 
-    if (!result.ok) return [];
+    if (!result.ok) {
+      logger.debug("Search returned not ok");
+      return [];
+    }
 
     const tweets = result.data as CliTweetData[];
+    logger.debug(`Got ${tweets.length} search results`);
     return tweets.map((t) => toTweetData(t, "search"));
-  } catch {
+  } catch (err) {
+    logger.error(`Search failed: ${err instanceof Error ? err.message : String(err)}`);
     return [];
   }
 }
@@ -248,11 +262,16 @@ function interactionScore(tweet: TweetData): number {
  * Returns an array of CliTweetData (index 0 = main tweet, rest = replies).
  */
 export function getTweetWithReplies(tweetId: string): CliTweetData[] {
+  logger.debug(`Fetching tweet thread: ${tweetId}`);
   try {
     const result = runTwitter(["tweet", "--json", "-n", "5", tweetId]);
-    if (!result.ok) return [];
+    if (!result.ok) {
+      logger.debug(`Tweet fetch returned not ok for ${tweetId}`);
+      return [];
+    }
     return result.data as CliTweetData[];
-  } catch {
+  } catch (err) {
+    logger.error(`Failed to fetch tweet ${tweetId}: ${err instanceof Error ? err.message : String(err)}`);
     return [];
   }
 }

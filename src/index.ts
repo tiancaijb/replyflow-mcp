@@ -11,6 +11,7 @@ import {
   getActiveAccount,
   setActiveAccount,
 } from "./config.js";
+import logger from "./logger.js";
 import { list, resetClient } from "./twitter.js";
 import {
   appendHistory,
@@ -76,19 +77,24 @@ async function startServer() {
   const integrity = checkConfigIntegrity(config);
   const hasCredentials = checkCredentials(config, integrity);
 
+  // Apply config logLevel (overrides LOG_LEVEL env var)
+  if (config.logLevel) {
+    logger.setLevel(config.logLevel);
+  }
+
   if (!hasCredentials) {
-    console.error(
-      "[ReplyFlow] Server started without credentials. Tools will return errors until configured.",
+    logger.warn(
+      "Server started without credentials. Tools will return errors until configured.",
     );
-    console.error(
-      "[ReplyFlow] Run 'npx replyflow-mcp setup' for interactive configuration.",
+    logger.info(
+      "Run 'npx replyflow-mcp setup' for interactive configuration.",
     );
   } else if (integrity.warnings.length > 0) {
-    console.error(
-      "[ReplyFlow] Server started with warnings (see above). Some tools may have limited functionality.",
+    logger.warn(
+      "Server started with warnings (see above). Some tools may have limited functionality.",
     );
   } else {
-    console.error("[ReplyFlow] Configuration OK.");
+    logger.info("Configuration OK.");
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────
@@ -538,12 +544,13 @@ async function startServer() {
   // ── Connect & run ────────────────────────────────────────────────────
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("[ReplyFlow] MCP server running on stdio");
+  logger.info("SERVER_STARTED");
+  logger.info("MCP server running on stdio");
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 main().catch((err) => {
-  console.error("[ReplyFlow] Fatal error:", err);
+  logger.error(`Fatal error: ${err instanceof Error ? err.message : String(err)}`);
   process.exit(1);
 });

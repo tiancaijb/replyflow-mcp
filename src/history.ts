@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
+import logger from "./logger.js";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,11 +33,17 @@ function ensureDir(): void {
 }
 
 function readAllEntries(): HistoryEntry[] {
-  if (!existsSync(HISTORY_PATH)) return [];
+  if (!existsSync(HISTORY_PATH)) {
+    logger.debug("History file does not exist yet");
+    return [];
+  }
   try {
     const raw = readFileSync(HISTORY_PATH, "utf-8");
-    return JSON.parse(raw) as HistoryEntry[];
-  } catch {
+    const entries = JSON.parse(raw) as HistoryEntry[];
+    logger.debug(`Read ${entries.length} history entries`);
+    return entries;
+  } catch (err) {
+    logger.error(`Failed to parse history file: ${err instanceof Error ? err.message : String(err)}`);
     return [];
   }
 }
@@ -80,6 +87,7 @@ export function appendHistory(
   };
   entries.push(entry);
   writeAllEntries(entries);
+  logger.debug(`Appended history entry ${id} for tweet ${tweetId ?? "(no id)"}`);
   return entry;
 }
 
@@ -179,6 +187,7 @@ export function checkForReplies(
 
   if (updated.length > 0) {
     writeAllEntries(entries);
+    logger.debug(`Updated ${updated.length} entries to replied status`);
   }
 
   return updated;

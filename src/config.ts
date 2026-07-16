@@ -1,6 +1,8 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
+import logger from "./logger.js";
+import type { LogLevel } from "./logger.js";
 
 // ── Config Type ──────────────────────────────────────────────────────────────
 
@@ -37,6 +39,8 @@ export interface Config {
    * When not set, the AI should detect and ask for confirmation.
    */
   language?: string;
+  /** Log level for the structured logger (overrides LOG_LEVEL env var). */
+  logLevel?: LogLevel;
 }
 
 const DEFAULT_CONFIG: Config = {
@@ -124,8 +128,8 @@ export function getConfig(): Config {
     const parsed = JSON.parse(raw) as Partial<Config>;
     return { ...DEFAULT_CONFIG, ...parsed };
   } catch (err) {
-    console.error(
-      `[ReplyFlow] Warning: failed to parse ${CONFIG_PATH}: ${err instanceof Error ? err.message : String(err)}`,
+    logger.warn(
+      `Failed to parse ${CONFIG_PATH}: ${err instanceof Error ? err.message : String(err)}`,
     );
     return { ...DEFAULT_CONFIG };
   }
@@ -176,7 +180,7 @@ export function checkConfigIntegrity(_config: Config): ConfigIntegrityReport {
 
 /**
  * Check whether the user has provided enough credential info to operate.
- * Prints a friendly message if nothing is configured yet.
+ * Logs messages if something is missing.
  */
 export function checkCredentials(
   config: Config,
@@ -185,34 +189,32 @@ export function checkCredentials(
   const report = integrity ?? checkConfigIntegrity(config);
 
   if (!report.ok || report.warnings.length > 0) {
-    console.error("");
-    console.error("  ╭──────────────────────────────────────────────────────╮");
-    console.error("  │                                                      │");
-    console.error("  │   ReplyFlow – Configuration check                    │");
-    console.error("  │                                                      │");
+    logger.info("╭──────────────────────────────────────────────────────╮");
+    logger.info("│                                                      │");
+    logger.info("│   ReplyFlow – Configuration check                    │");
+    logger.info("│                                                      │");
 
     if (!report.ok) {
-      console.error("  │                                                      │");
-      console.error("  │   ❌ Missing critical config:                       │");
+      logger.info("│                                                      │");
+      logger.warn("│   ❌ Missing critical config:                       │");
       for (const item of report.missing) {
-        console.error(`  │      ${item}`);
+        logger.warn(`│      ${item}`);
       }
     }
 
     if (report.warnings.length > 0) {
-      console.error("  │                                                      │");
-      console.error("  │   ⚠️  Warnings:                                      │");
+      logger.info("│                                                      │");
+      logger.warn("│   ⚠️  Warnings:                                      │");
       for (const item of report.warnings) {
-        console.error(`  │      ${item}`);
+        logger.warn(`│      ${item}`);
       }
     }
 
-    console.error("  │                                                      │");
-    console.error("  │   Run 'npx replyflow-mcp setup' for interactive      │");
-    console.error("  │   configuration.                                     │");
-    console.error("  │                                                      │");
-    console.error("  ╰──────────────────────────────────────────────────────╯");
-    console.error("");
+    logger.info("│                                                      │");
+    logger.info("│   Run 'npx replyflow-mcp setup' for interactive      │");
+    logger.info("│   configuration.                                     │");
+    logger.info("│                                                      │");
+    logger.info("╰──────────────────────────────────────────────────────╯");
   }
 
   return report.ok;
