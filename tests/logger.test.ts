@@ -9,7 +9,9 @@ describe("Logger singleton", () => {
   let stderrSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    stderrSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
   });
 
   afterEach(() => {
@@ -26,24 +28,18 @@ describe("Logger singleton", () => {
     expect(stderrSpy).toHaveBeenCalledWith(
       expect.stringContaining("[ReplyFlow]"),
     );
-    expect(stderrSpy).toHaveBeenCalledWith(
-      expect.stringContaining("[ERROR]"),
-    );
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("[ERROR]"));
     expect(stderrSpy).toHaveBeenCalledWith(
       expect.stringContaining("Something went wrong"),
     );
     // Ends with newline
-    expect(stderrSpy).toHaveBeenCalledWith(
-      expect.stringMatching(/.+\n$/),
-    );
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringMatching(/.+\n$/));
   });
 
   it("writes formatted info message to stderr", () => {
     logger.info("Server started");
 
-    expect(stderrSpy).toHaveBeenCalledWith(
-      expect.stringContaining("[INFO]"),
-    );
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("[INFO]"));
     expect(stderrSpy).toHaveBeenCalledWith(
       expect.stringContaining("Server started"),
     );
@@ -52,9 +48,7 @@ describe("Logger singleton", () => {
   it("writes formatted warn message to stderr", () => {
     logger.warn("Deprecated config");
 
-    expect(stderrSpy).toHaveBeenCalledWith(
-      expect.stringContaining("[WARN]"),
-    );
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("[WARN]"));
     expect(stderrSpy).toHaveBeenCalledWith(
       expect.stringContaining("Deprecated config"),
     );
@@ -64,9 +58,7 @@ describe("Logger singleton", () => {
     const debugLogger = new Logger("debug");
     debugLogger.debug("Fetching tweets");
 
-    expect(stderrSpy).toHaveBeenCalledWith(
-      expect.stringContaining("[DEBUG]"),
-    );
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("[DEBUG]"));
     expect(stderrSpy).toHaveBeenCalledWith(
       expect.stringContaining("Fetching tweets"),
     );
@@ -77,7 +69,9 @@ describe("Log level filtering", () => {
   let stderrSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    stderrSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
   });
 
   afterEach(() => {
@@ -135,12 +129,8 @@ describe("Log level filtering", () => {
     expect(stderrSpy).toHaveBeenCalledWith(
       expect.stringContaining("debug msg"),
     );
-    expect(stderrSpy).toHaveBeenCalledWith(
-      expect.stringContaining("info msg"),
-    );
-    expect(stderrSpy).toHaveBeenCalledWith(
-      expect.stringContaining("warn msg"),
-    );
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("info msg"));
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("warn msg"));
     expect(stderrSpy).toHaveBeenCalledWith(
       expect.stringContaining("error msg"),
     );
@@ -183,7 +173,9 @@ describe("Logger child context", () => {
   let stderrSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    stderrSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
   });
 
   afterEach(() => {
@@ -194,9 +186,7 @@ describe("Logger child context", () => {
     const child = logger.child("config");
     child.info("reading config");
 
-    expect(stderrSpy).toHaveBeenCalledWith(
-      expect.stringContaining("[config]"),
-    );
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("[config]"));
     expect(stderrSpy).toHaveBeenCalledWith(
       expect.stringContaining("reading config"),
     );
@@ -230,7 +220,9 @@ describe("Logger setLevel", () => {
   let stderrSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    stderrSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
   });
 
   afterEach(() => {

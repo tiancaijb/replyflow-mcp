@@ -43,7 +43,9 @@ function readAllEntries(): HistoryEntry[] {
     logger.debug(`Read ${entries.length} history entries`);
     return entries;
   } catch (err) {
-    logger.error(`Failed to parse history file: ${err instanceof Error ? err.message : String(err)}`);
+    logger.error(
+      `Failed to parse history file: ${err instanceof Error ? err.message : String(err)}`,
+    );
     return [];
   }
 }
@@ -87,7 +89,9 @@ export function appendHistory(
   };
   entries.push(entry);
   writeAllEntries(entries);
-  logger.debug(`Appended history entry ${id} for tweet ${tweetId ?? "(no id)"}`);
+  logger.debug(
+    `Appended history entry ${id} for tweet ${tweetId ?? "(no id)"}`,
+  );
   return entry;
 }
 
@@ -142,27 +146,30 @@ export function getRepliedTweetIds(): Set<string> {
  * @returns           Array of entries whose status changed to "replied".
  */
 export function checkForReplies(
-  getThread?: (tweetId: string) => { authorId: string; replies: { authorId: string }[] } | null,
+  getThread?: (
+    tweetId: string,
+  ) => { authorId: string; replies: { authorId: string }[] } | null,
   myUserId?: string,
 ): HistoryEntry[] {
   // Lazy import to avoid circular dependency at module level
-  const fetcher: NonNullable<typeof getThread> = getThread ?? ((tweetId: string) => {
-    try {
-      // Dynamic require to avoid top-level import issues
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { getTweetWithReplies } = require("./twitter.js");
-      const data = getTweetWithReplies(tweetId);
-      if (!data || data.length === 0) return null;
-      return {
-        authorId: data[0]?.author?.id ?? "",
-        replies: data.slice(1).map((r: { author?: { id: string } }) => ({
-          authorId: r.author?.id ?? "",
-        })),
-      };
-    } catch {
-      return null;
-    }
-  });
+  const fetcher: NonNullable<typeof getThread> =
+    getThread ??
+    ((tweetId: string) => {
+      try {
+        // Dynamic require to avoid top-level import issues
+        const { getTweetWithReplies } = require("./twitter.js");
+        const data = getTweetWithReplies(tweetId);
+        if (!data || data.length === 0) return null;
+        return {
+          authorId: data[0]?.author?.id ?? "",
+          replies: data.slice(1).map((r: { author?: { id: string } }) => ({
+            authorId: r.author?.id ?? "",
+          })),
+        };
+      } catch {
+        return null;
+      }
+    });
 
   const entries = readAllEntries();
   const sentEntries = entries.filter((e) => e.status === "sent" && e.tweetId);
@@ -176,7 +183,10 @@ export function checkForReplies(
 
     // Check if any reply is from someone other than the original author and not us
     const hasExternalReply = thread.replies.some(
-      (r) => r.authorId !== originalAuthorId && r.authorId !== (myUserId ?? "") && r.authorId !== "",
+      (r) =>
+        r.authorId !== originalAuthorId &&
+        r.authorId !== (myUserId ?? "") &&
+        r.authorId !== "",
     );
 
     if (hasExternalReply) {
@@ -200,7 +210,9 @@ export function getFollowUpTweets(): HistoryEntry[] {
   const entries = readAllEntries();
   return entries
     .filter((e) => e.status === "replied")
-    .sort((a, b) => new Date(b.copiedAt).getTime() - new Date(a.copiedAt).getTime());
+    .sort(
+      (a, b) => new Date(b.copiedAt).getTime() - new Date(a.copiedAt).getTime(),
+    );
 }
 
 /**

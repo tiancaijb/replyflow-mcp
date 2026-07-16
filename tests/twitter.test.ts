@@ -18,17 +18,18 @@ vi.mock("child_process", () => {
 // Here we test mergeAndSort thoroughly, plus error scenarios via mocked CLI.
 
 import { spawnSync } from "child_process";
-import { mergeAndSort, getTrendingPosts, getTweetWithReplies } from "../src/twitter.js";
+import {
+  mergeAndSort,
+  getTrendingPosts,
+  getTweetWithReplies,
+} from "../src/twitter.js";
 import { cache } from "../src/cache.js";
 import type { TweetData } from "../src/twitter.js";
 import type { Config } from "../src/config.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeTweet(
-  id: string,
-  overrides: Partial<TweetData> = {},
-): TweetData {
+function makeTweet(id: string, overrides: Partial<TweetData> = {}): TweetData {
   return {
     id,
     text: `Tweet ${id}`,
@@ -48,7 +49,9 @@ function makeConfig(overrides: Partial<Config> = {}): Config {
 /**
  * Build a fake spawnSync return representing a successful twitter search.
  */
-function makeSearchResult(tweets: Array<{ id: string; text: string }> = []): ReturnType<typeof spawnSync> {
+function makeSearchResult(
+  tweets: Array<{ id: string; text: string }> = [],
+): ReturnType<typeof spawnSync> {
   return {
     pid: 123,
     output: [],
@@ -59,7 +62,14 @@ function makeSearchResult(tweets: Array<{ id: string; text: string }> = []): Ret
         id: t.id,
         text: t.text,
         author: { id: "u1", name: "Test", screenName: "testuser" },
-        metrics: { likes: 10, retweets: 5, replies: 2, quotes: 1, views: 100, bookmarks: 3 },
+        metrics: {
+          likes: 10,
+          retweets: 5,
+          replies: 2,
+          quotes: 1,
+          views: 100,
+          bookmarks: 3,
+        },
         createdAt: "2024-01-01T00:00:00.000Z",
         createdAtLocal: "2024-01-01 00:00",
         createdAtISO: "2024-01-01T00:00:00.000Z",
@@ -81,7 +91,12 @@ function makeSearchResult(tweets: Array<{ id: string; text: string }> = []): Ret
 /**
  * Build a fake spawnSync error return.
  */
-function makeErrorResult(error: Error, stderr = "", status: number | null = null, signal: string | null = null): ReturnType<typeof spawnSync> {
+function makeErrorResult(
+  error: Error,
+  stderr = "",
+  status: number | null = null,
+  signal: string | null = null,
+): ReturnType<typeof spawnSync> {
   return {
     pid: 0,
     output: [],
@@ -96,7 +111,10 @@ function makeErrorResult(error: Error, stderr = "", status: number | null = null
 /**
  * Build a fake spawnSync non-zero exit return.
  */
-function makeExitResult(exitCode: number, stderr = ""): ReturnType<typeof spawnSync> {
+function makeExitResult(
+  exitCode: number,
+  stderr = "",
+): ReturnType<typeof spawnSync> {
   return {
     pid: 123,
     output: [],
@@ -243,7 +261,9 @@ describe("twitter", () => {
     });
 
     it("returns empty array when spawnSync throws rate-limit (no retry)", () => {
-      vi.mocked(spawnSync).mockReturnValue(makeExitResult(429, "rate limit exceeded"));
+      vi.mocked(spawnSync).mockReturnValue(
+        makeExitResult(429, "rate limit exceeded"),
+      );
 
       const result = getTrendingPosts(makeConfig());
 
@@ -286,7 +306,9 @@ describe("twitter", () => {
       const netErr = new Error("connect ECONNRESET");
       (netErr as NodeJS.ErrnoException).code = "ECONNRESET";
 
-      const successResult = makeSearchResult([{ id: "t1", text: "Hello world" }]);
+      const successResult = makeSearchResult([
+        { id: "t1", text: "Hello world" },
+      ]);
 
       // First call fails with network error, second call succeeds
       vi.mocked(spawnSync)

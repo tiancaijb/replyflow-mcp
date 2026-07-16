@@ -1,6 +1,6 @@
 /// <reference types="vitest/globals" />
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 
 // ── Mock fs ──────────────────────────────────────────────────────────────────
 // Hoisted before imports so the config module sees mocked fs
@@ -51,7 +51,10 @@ describe("config", () => {
     it("returns merged config when file exists and is valid JSON", () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue(
-        JSON.stringify({ replyStyle: "supportive", nicheKeywords: ["react", "typescript"] }),
+        JSON.stringify({
+          replyStyle: "supportive",
+          nicheKeywords: ["react", "typescript"],
+        }),
       );
 
       const result = getConfig();
@@ -62,7 +65,9 @@ describe("config", () => {
 
     it("merges with defaults when config file has only partial fields", () => {
       vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({ replyStyle: "thoughtful" }));
+      vi.mocked(readFileSync).mockReturnValue(
+        JSON.stringify({ replyStyle: "thoughtful" }),
+      );
 
       const result = getConfig();
 

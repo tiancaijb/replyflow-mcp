@@ -22,35 +22,35 @@ ReplyFlow 是一个 [MCP (Model Context Protocol)](https://modelcontextprotocol.
 
 只做 niche search（按项目关键词搜索），不再拉取 timeline/mentions。帖子按互动量排序，已回复的标记 `replied: true`。
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
+| 参数      | 类型            | 说明                         |
+| --------- | --------------- | ---------------------------- |
 | `project` | `string` (可选) | 指定项目名，覆盖当前激活项目 |
 
 ### replyflow_copy — 复制到剪贴板
 
 自动记录回复历史，支持回复链追踪。
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `text` | `string` | 回复内容 |
-| `tweetId` | `string` (可选) | 被回复的帖子 ID |
-| `conversationId` | `string` (可选) | 对话/线程 ID，用于回复链追踪 |
+| 参数               | 类型            | 说明                                     |
+| ------------------ | --------------- | ---------------------------------------- |
+| `text`             | `string`        | 回复内容                                 |
+| `tweetId`          | `string` (可选) | 被回复的帖子 ID                          |
+| `conversationId`   | `string` (可选) | 对话/线程 ID，用于回复链追踪             |
 | `inReplyToTweetId` | `string` (可选) | 所回复的具体帖子 ID（与 tweetId 不同时） |
-| `style` | `string` (可选) | 回复风格 |
+| `style`            | `string` (可选) | 回复风格                                 |
 
 ### replyflow_update_config — 对话中改配置
 
 支持项目和全局配置。
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `project` | `string` | 激活或创建项目 |
-| `projectName` | `string` | 项目显示名称 |
-| `projectDescription` | `string` | 项目描述 |
-| `projectUrl` | `string` | 项目 URL |
-| `projectKeywords` | `string[]` | 项目关键词 |
-| `keywords` | `string[]` | 保底关键词（项目无关键词时使用） |
-| `style` | `ReplyStyle` | 切换首选回复风格 |
+| 参数                 | 类型         | 说明                             |
+| -------------------- | ------------ | -------------------------------- |
+| `project`            | `string`     | 激活或创建项目                   |
+| `projectName`        | `string`     | 项目显示名称                     |
+| `projectDescription` | `string`     | 项目描述                         |
+| `projectUrl`         | `string`     | 项目 URL                         |
+| `projectKeywords`    | `string[]`   | 项目关键词                       |
+| `keywords`           | `string[]`   | 保底关键词（项目无关键词时使用） |
+| `style`              | `ReplyStyle` | 切换首选回复风格                 |
 
 ### replyflow_config_status — 查看配置状态
 
@@ -58,31 +58,32 @@ ReplyFlow 是一个 [MCP (Model Context Protocol)](https://modelcontextprotocol.
 
 ### replyflow_history — 查看回复历史
 
-| 参数 | 类型 | 默认 | 说明 |
-|------|------|------|------|
-| `tweetId` | `string` | — | 按帖子 ID 筛选 |
-| `limit` | `number` | `20` | 最近 N 条 |
-| `status` | `"sent" \| "replied" \| "followed_up"` | — | 按回复链状态筛选 |
+| 参数      | 类型                                   | 默认 | 说明             |
+| --------- | -------------------------------------- | ---- | ---------------- |
+| `tweetId` | `string`                               | —    | 按帖子 ID 筛选   |
+| `limit`   | `number`                               | `20` | 最近 N 条        |
+| `status`  | `"sent" \| "replied" \| "followed_up"` | —    | 按回复链状态筛选 |
 
 ### replyflow_followups — 查看待跟进对话
 
 检查已回复的帖子是否有新回复，返回需要跟进的对话列表。
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
+| 参数               | 类型            | 说明                   |
+| ------------------ | --------------- | ---------------------- |
 | `markAsFollowedUp` | `number` (可选) | 将指定条目标记为已跟进 |
 
 调用时不传参数：先检查所有 `sent` 状态的帖子是否有新回复，再返回当前 `replied` 状态的待跟进列表。
 
 **回复链状态说明**：
+
 - `sent`：已复制回复，尚未检测到新回复
 - `replied`：对方已回复，需要跟进
 - `followed_up`：已跟进处理
 
 ### replyflow_switch_account — 切换 Twitter 账号
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
+| 参数      | 类型     | 说明                                    |
+| --------- | -------- | --------------------------------------- |
 | `account` | `string` | 账号名称（仅用于 twitter-cli 认证切换） |
 
 ## 快速开始

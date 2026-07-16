@@ -66,7 +66,14 @@ async function main() {
       const callbackState = parsed.searchParams.get("state");
       const error = parsed.searchParams.get("error");
 
-      console.log("  [debug] code:", code?.slice(0, 10), "state:", callbackState?.slice(0, 10), "error:", error);
+      console.log(
+        "  [debug] code:",
+        code?.slice(0, 10),
+        "state:",
+        callbackState?.slice(0, 10),
+        "error:",
+        error,
+      );
 
       if (error) {
         res.writeHead(400, { "Content-Type": "text/html" });
@@ -77,13 +84,17 @@ async function main() {
 
       if (!code || !callbackState) {
         res.writeHead(400, { "Content-Type": "text/html" });
-        res.end(`<h1>❌ Missing params</h1><p>code: ${!!code}, state: ${!!callbackState}</p>`);
+        res.end(
+          `<h1>❌ Missing params</h1><p>code: ${!!code}, state: ${!!callbackState}</p>`,
+        );
         reject(new Error(`Missing code or state. URL: ${reqUrl}`));
         return;
       }
 
       res.writeHead(200, { "Content-Type": "text/html" });
-      res.end(`<html><body style="font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;background:#f5f5f5"><div style="text-align:center;padding:2rem;background:white;border-radius:12px"><h1 style="color:#1da1f2;">✅ ReplyFlow</h1><p>OAuth complete! Close this tab.</p></div></body></html>`);
+      res.end(
+        `<html><body style="font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;background:#f5f5f5"><div style="text-align:center;padding:2rem;background:white;border-radius:12px"><h1 style="color:#1da1f2;">✅ ReplyFlow</h1><p>OAuth complete! Close this tab.</p></div></body></html>`,
+      );
       resolve({ code, callbackState });
     });
 
@@ -98,7 +109,11 @@ async function main() {
   console.log("\n  → Opening browser…\n");
   console.log("  If browser doesn't open, copy this URL:");
   console.log(`  ${url}\n`);
-  try { spawn("xdg-open", [url], { stdio: "ignore" }); } catch {}
+  try {
+    spawn("xdg-open", [url], { stdio: "ignore" });
+  } catch {
+    // xdg-open may not be available
+  }
 
   console.log(`  Waiting on http://localhost:${PORT}/callback …\n`);
 

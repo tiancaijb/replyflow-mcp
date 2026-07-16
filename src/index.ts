@@ -19,7 +19,6 @@ import {
   getRepliedTweetIds,
   checkForReplies,
   getFollowUpTweets,
-  updateEntryStatus,
   markAsFollowedUp,
 } from "./history.js";
 // ── CLI entry ────────────────────────────────────────────────────────────────
@@ -46,8 +45,12 @@ async function main() {
     console.log("  ReplyFlow MCP Server");
     console.log("");
     console.log("  Usage:");
-    console.log("    npx replyflow-mcp                        Start MCP server (stdio)");
-    console.log("    npx replyflow-mcp setup                  Run interactive configuration");
+    console.log(
+      "    npx replyflow-mcp                        Start MCP server (stdio)",
+    );
+    console.log(
+      "    npx replyflow-mcp setup                  Run interactive configuration",
+    );
     console.log("    npx replyflow-mcp --help                 Show this help");
     console.log("");
     process.exit(0);
@@ -86,9 +89,7 @@ async function startServer() {
     logger.warn(
       "Server started without credentials. Tools will return errors until configured.",
     );
-    logger.info(
-      "Run 'npx replyflow-mcp setup' for interactive configuration.",
-    );
+    logger.info("Run 'npx replyflow-mcp setup' for interactive configuration.");
   } else if (integrity.warnings.length > 0) {
     logger.warn(
       "Server started with warnings (see above). Some tools may have limited functionality.",
@@ -100,7 +101,10 @@ async function startServer() {
   // ── Helpers ──────────────────────────────────────────────────────────
 
   function withErrorHandling(
-    fn: () => Promise<{ content: { type: "text"; text: string }[]; isError?: boolean }>,
+    fn: () => Promise<{
+      content: { type: "text"; text: string }[];
+      isError?: boolean;
+    }>,
   ) {
     return fn().catch((err) => ({
       content: [
@@ -154,7 +158,13 @@ async function startServer() {
 
   // ── Tool: replyflow_copy ─────────────────────────────────────────────
 
-  const STYLE_OPTIONS = ["casual", "curious", "supportive", "thoughtful", "auto"] as const;
+  const STYLE_OPTIONS = [
+    "casual",
+    "curious",
+    "supportive",
+    "thoughtful",
+    "auto",
+  ] as const;
 
   server.tool(
     "replyflow_copy",
@@ -171,7 +181,9 @@ async function startServer() {
       inReplyToTweetId: z
         .string()
         .optional()
-        .describe("ID of the tweet this reply is responding to (if different from tweetId)"),
+        .describe(
+          "ID of the tweet this reply is responding to (if different from tweetId)",
+        ),
       style: z
         .enum(STYLE_OPTIONS)
         .optional()
@@ -233,15 +245,14 @@ async function startServer() {
       language: z
         .string()
         .optional()
-        .describe("Language for reply explanations (e.g. '中文', 'English', '日本語')"),
+        .describe(
+          "Language for reply explanations (e.g. '中文', 'English', '日本語')",
+        ),
       keywords: z
         .array(z.string())
         .optional()
         .describe("Fallback niche keywords (replaces existing list)"),
-      style: z
-        .enum(STYLE_OPTIONS)
-        .optional()
-        .describe("Preferred reply style"),
+      style: z.enum(STYLE_OPTIONS).optional().describe("Preferred reply style"),
     },
     async (args) => {
       return withErrorHandling(async () => {
@@ -263,11 +274,24 @@ async function startServer() {
 
             const projects = { ...(currentCfg.projects ?? {}) };
             projects[args.project] = {
-              ...(currentProject ?? { name: args.project, description: "", url: "", keywords: [] }),
-              ...(args.projectName !== undefined ? { name: args.projectName } : {}),
-              ...(args.projectDescription !== undefined ? { description: args.projectDescription } : {}),
-              ...(args.projectUrl !== undefined ? { url: args.projectUrl } : {}),
-              ...(args.projectKeywords !== undefined ? { keywords: args.projectKeywords } : {}),
+              ...(currentProject ?? {
+                name: args.project,
+                description: "",
+                url: "",
+                keywords: [],
+              }),
+              ...(args.projectName !== undefined
+                ? { name: args.projectName }
+                : {}),
+              ...(args.projectDescription !== undefined
+                ? { description: args.projectDescription }
+                : {}),
+              ...(args.projectUrl !== undefined
+                ? { url: args.projectUrl }
+                : {}),
+              ...(args.projectKeywords !== undefined
+                ? { keywords: args.projectKeywords }
+                : {}),
             };
             partial.projects = projects;
           }
@@ -292,7 +316,8 @@ async function startServer() {
                 type: "text",
                 text: JSON.stringify({
                   updated: false,
-                  reason: "No changes provided. Pass 'project', 'keywords', and/or 'style'.",
+                  reason:
+                    "No changes provided. Pass 'project', 'keywords', and/or 'style'.",
                 }),
               },
             ],
@@ -329,53 +354,51 @@ async function startServer() {
 
   // ── Tool: replyflow_config_status ────────────────────────────────────
 
-  server.tool(
-    "replyflow_config_status",
-    {},
-    async () => {
-      return withErrorHandling(async () => {
-        const cfg = getEffectiveConfig();
-        const activeAccount = getActiveAccount();
-        const report = checkConfigIntegrity(cfg);
+  server.tool("replyflow_config_status", {}, async () => {
+    return withErrorHandling(async () => {
+      const cfg = getEffectiveConfig();
+      const activeAccount = getActiveAccount();
+      const report = checkConfigIntegrity(cfg);
 
-        const activeProject = cfg.activeProject
-          ? cfg.projects?.[cfg.activeProject]
-          : undefined;
+      const activeProject = cfg.activeProject
+        ? cfg.projects?.[cfg.activeProject]
+        : undefined;
 
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                configured: report.ok,
-                activeAccount: activeAccount || "default",
-                activeProject: cfg.activeProject ?? null,
-                activeProjectInfo: activeProject ?? null,
-                projects: cfg.projects ?? {},
-                issues: {
-                  critical: report.missing,
-                  warnings: report.warnings,
-                },
-                config: {
-                  auth: "twitter-cli (browser cookie)",
-                  nicheKeywords: cfg.nicheKeywords,
-                  replyStyle: cfg.replyStyle ?? "curious",
-                  language: cfg.language ?? null,
-                },
-              }),
-            },
-          ],
-        };
-      });
-    },
-  );
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              configured: report.ok,
+              activeAccount: activeAccount || "default",
+              activeProject: cfg.activeProject ?? null,
+              activeProjectInfo: activeProject ?? null,
+              projects: cfg.projects ?? {},
+              issues: {
+                critical: report.missing,
+                warnings: report.warnings,
+              },
+              config: {
+                auth: "twitter-cli (browser cookie)",
+                nicheKeywords: cfg.nicheKeywords,
+                replyStyle: cfg.replyStyle ?? "curious",
+                language: cfg.language ?? null,
+              },
+            }),
+          },
+        ],
+      };
+    });
+  });
 
   // ── Tool: replyflow_switch_account ───────────────────────────────────
 
   server.tool(
     "replyflow_switch_account",
     {
-      account: z.string().describe("Account name to switch to (e.g. 'personal', 'work')"),
+      account: z
+        .string()
+        .describe("Account name to switch to (e.g. 'personal', 'work')"),
     },
     async (args) => {
       return withErrorHandling(async () => {
@@ -408,10 +431,7 @@ async function startServer() {
   server.tool(
     "replyflow_history",
     {
-      tweetId: z
-        .string()
-        .optional()
-        .describe("Filter by tweet ID"),
+      tweetId: z.string().optional().describe("Filter by tweet ID"),
       limit: z
         .number()
         .optional()
@@ -424,7 +444,11 @@ async function startServer() {
     },
     async (args) => {
       return withErrorHandling(async () => {
-        const entries = readHistory(args.tweetId, args.limit ?? 20, args.status);
+        const entries = readHistory(
+          args.tweetId,
+          args.limit ?? 20,
+          args.status,
+        );
         return {
           content: [
             {
@@ -448,7 +472,9 @@ async function startServer() {
       markAsFollowedUp: z
         .number()
         .optional()
-        .describe("Entry ID to mark as followed up (optional, marks a specific entry as done)"),
+        .describe(
+          "Entry ID to mark as followed up (optional, marks a specific entry as done)",
+        ),
     },
     async (args) => {
       return withErrorHandling(async () => {
@@ -560,7 +586,9 @@ async function startServer() {
  * The interval is controlled by `config.followupInterval` (minutes).
  * Set to 0 or omit to disable.
  */
-function startFollowUpChecker(config: ReturnType<typeof getEffectiveConfig>): void {
+function startFollowUpChecker(
+  config: ReturnType<typeof getEffectiveConfig>,
+): void {
   const intervalMin = config.followupInterval ?? 5;
 
   if (intervalMin <= 0) {
@@ -605,6 +633,8 @@ function startFollowUpChecker(config: ReturnType<typeof getEffectiveConfig>): vo
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 main().catch((err) => {
-  logger.error(`Fatal error: ${err instanceof Error ? err.message : String(err)}`);
+  logger.error(
+    `Fatal error: ${err instanceof Error ? err.message : String(err)}`,
+  );
   process.exit(1);
 });

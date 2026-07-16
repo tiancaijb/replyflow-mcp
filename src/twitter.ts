@@ -129,7 +129,10 @@ function formatCliError(err: unknown): string {
  *
  * Throws a classified CliError on failure.
  */
-function runTwitter(args: string[], options?: { timeout?: number }): CliResponse {
+function runTwitter(
+  args: string[],
+  options?: { timeout?: number },
+): CliResponse {
   // ── Mock mode for integration tests ────────────────────────────────
   if (process.env.REPLYFLOW_MOCK_CLI === "true") {
     return runTwitterMock(args);
@@ -143,7 +146,8 @@ function runTwitter(args: string[], options?: { timeout?: number }): CliResponse
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     // Sleep before retries (not before first attempt)
     if (attempt > 0) {
-      const delay = retryDelays[attempt - 1] ?? retryDelays[retryDelays.length - 1];
+      const delay =
+        retryDelays[attempt - 1] ?? retryDelays[retryDelays.length - 1];
       logger.debug(`Retry ${attempt}/${maxRetries} after ${delay}ms`);
       sleepSync(delay);
     }
@@ -257,7 +261,9 @@ function getMe(): { id: string; username: string } {
 
   logger.debug("Fetching whoami from twitter-cli");
   const result = runTwitter(["whoami", "--json"]);
-  const data = result.data as { user: { id: string; name: string; username: string; screenName: string } };
+  const data = result.data as {
+    user: { id: string; name: string; username: string; screenName: string };
+  };
   const me = { id: data.user.id, username: data.user.screenName };
   cache.set(key, me, ACCOUNT_CACHE_TTL);
   return me;
@@ -323,9 +329,7 @@ export function getTrendingPosts(
   keywords?: string[],
 ): TweetData[] {
   const terms =
-    keywords && keywords.length > 0
-      ? keywords
-      : getNicheKeywords(config);
+    keywords && keywords.length > 0 ? keywords : getNicheKeywords(config);
 
   if (terms.length === 0) return [];
 
@@ -342,9 +346,16 @@ export function getTrendingPosts(
 
   try {
     const result = runTwitter([
-      "search", "--json", "-t", "latest", "-n", "20",
-      "--exclude", "retweets",
-      "--lang", "en",
+      "search",
+      "--json",
+      "-t",
+      "latest",
+      "-n",
+      "20",
+      "--exclude",
+      "retweets",
+      "--lang",
+      "en",
       query,
     ]);
 
@@ -448,13 +459,20 @@ function extractCommand(args: string[]): string {
 function runTwitterMock(args: string[]): CliResponse {
   const command = extractCommand(args);
   // Resolve fixtures relative to CWD (project root when running tests)
-  const fixturePath = join(process.cwd(), "tests", "fixtures", `${command}.json`);
+  const fixturePath = join(
+    process.cwd(),
+    "tests",
+    "fixtures",
+    `${command}.json`,
+  );
 
   try {
     const raw = readFileSync(fixturePath, "utf-8");
     return JSON.parse(raw) as CliResponse;
-  } catch (err) {
-    logger.error(`Mock CLI: fixture not found for command "${command}" at ${fixturePath}`);
+  } catch (_err) {
+    logger.error(
+      `Mock CLI: fixture not found for command "${command}" at ${fixturePath}`,
+    );
     return {
       ok: false,
       schema_version: "1",

@@ -55,9 +55,8 @@ afterEach(() => {
 
 describe("config → search → copy → history flow", () => {
   it("configures a project, searches, copies reply, and retrieves history", async () => {
-    const { updateEffectiveConfig, getEffectiveConfig } = await import(
-      "../../src/config.js"
-    );
+    const { updateEffectiveConfig, getEffectiveConfig } =
+      await import("../../src/config.js");
 
     // ── 1. Configure a project ───────────────────────────────────────
     const config: Partial<Config> = {
@@ -78,7 +77,10 @@ describe("config → search → copy → history flow", () => {
     // Verify config was saved
     const savedConfig = getEffectiveConfig();
     expect(savedConfig.activeProject).toBe("MyTestProject");
-    expect(savedConfig.projects?.MyTestProject?.keywords).toEqual(["indie dev", "saas"]);
+    expect(savedConfig.projects?.MyTestProject?.keywords).toEqual([
+      "indie dev",
+      "saas",
+    ]);
 
     // ── 2. Search for tweets ─────────────────────────────────────────
     const { list } = await import("../../src/twitter.js");
@@ -95,9 +97,7 @@ describe("config → search → copy → history flow", () => {
     expect(result.userId).toBeDefined();
 
     // ── 3. Copy a reply (simulate) ───────────────────────────────────
-    const { appendHistory, readHistory } = await import(
-      "../../src/history.js"
-    );
+    const { appendHistory, readHistory } = await import("../../src/history.js");
 
     const tweetId = result.tweets[0].id;
     const replyText = "Great work! Keep building.";

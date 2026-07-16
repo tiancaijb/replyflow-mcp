@@ -164,7 +164,12 @@ describe("classifyCliError", () => {
   });
 
   it("classifies stderr containing 'authentication failed' as CliAuthError", () => {
-    const result = classifyCliError(null, "authentication failed: invalid token", 1, null);
+    const result = classifyCliError(
+      null,
+      "authentication failed: invalid token",
+      1,
+      null,
+    );
 
     expect(result).toBeInstanceOf(CliAuthError);
   });
@@ -190,7 +195,12 @@ describe("classifyCliError", () => {
   });
 
   it("classifies stderr containing 'rate_limit' as CliRateLimitError", () => {
-    const result = classifyCliError(null, "rate_limit: 15 requests per 15 min", 1, null);
+    const result = classifyCliError(
+      null,
+      "rate_limit: 15 requests per 15 min",
+      1,
+      null,
+    );
 
     expect(result).toBeInstanceOf(CliRateLimitError);
   });
@@ -245,12 +255,16 @@ describe("classifyCliError", () => {
 describe("getUserFriendlyMessage", () => {
   it("returns timeout message for CliTimeoutError", () => {
     const msg = getUserFriendlyMessage(new CliTimeoutError("x", 30000));
-    expect(msg).toBe("Twitter CLI timed out — check network or increase timeout");
+    expect(msg).toBe(
+      "Twitter CLI timed out — check network or increase timeout",
+    );
   });
 
   it("returns auth message for CliAuthError", () => {
     const msg = getUserFriendlyMessage(new CliAuthError("x"));
-    expect(msg).toBe("Twitter CLI auth failed — run 'twitter status' to re-authenticate");
+    expect(msg).toBe(
+      "Twitter CLI auth failed — run 'twitter status' to re-authenticate",
+    );
   });
 
   it("returns rate limit message for CliRateLimitError", () => {

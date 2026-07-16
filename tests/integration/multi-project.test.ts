@@ -38,9 +38,12 @@ afterEach(() => {
   // Clean up
   try {
     const dir = join(TEST_HOME, ".replyflow");
-    if (existsSync(join(dir, "config.json"))) unlinkSync(join(dir, "config.json"));
-    if (existsSync(join(dir, "history.json"))) unlinkSync(join(dir, "history.json"));
-    if (existsSync(join(dir, "active_account"))) unlinkSync(join(dir, "active_account"));
+    if (existsSync(join(dir, "config.json")))
+      unlinkSync(join(dir, "config.json"));
+    if (existsSync(join(dir, "history.json")))
+      unlinkSync(join(dir, "history.json"));
+    if (existsSync(join(dir, "active_account")))
+      unlinkSync(join(dir, "active_account"));
   } catch {
     // ignore
   }
@@ -68,7 +71,11 @@ describe("multi-project support", () => {
 
     let cfg = getEffectiveConfig();
     expect(cfg.activeProject).toBe("IndieProject");
-    expect(getNicheKeywords(cfg)).toEqual(["indie", "side project", "bootstrapped"]);
+    expect(getNicheKeywords(cfg)).toEqual([
+      "indie",
+      "side project",
+      "bootstrapped",
+    ]);
 
     // ── 2. Add project B (AI project) ───────────────────────────────
     updateEffectiveConfig({
@@ -100,7 +107,11 @@ describe("multi-project support", () => {
 
     cfg = getEffectiveConfig();
     expect(cfg.activeProject).toBe("IndieProject");
-    expect(getNicheKeywords(cfg)).toEqual(["indie", "side project", "bootstrapped"]);
+    expect(getNicheKeywords(cfg)).toEqual([
+      "indie",
+      "side project",
+      "bootstrapped",
+    ]);
   });
 
   it("searches with project-specific keywords when project name is passed to list", async () => {
@@ -135,6 +146,8 @@ describe("multi-project support", () => {
     expect(result.error).toBeUndefined();
     expect(result.tweets.length).toBeGreaterThan(0);
     // Should return tweets (from fixture)
-    expect(result.tweets.every((t: { source: string }) => t.source === "search")).toBe(true);
+    expect(
+      result.tweets.every((t: { source: string }) => t.source === "search"),
+    ).toBe(true);
   });
 });

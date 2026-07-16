@@ -30,7 +30,7 @@ child.stdout.on("data", (chunk: Buffer) => {
   tryParse();
 });
 
-child.stderr.on("data", (chunk: Buffer) => {
+child.stderr.on("data", (_chunk: Buffer) => {
   // MCP server logs to stderr
 });
 
@@ -48,25 +48,29 @@ function tryParse() {
         child.kill();
         process.exit(0);
       }
-    } catch {}
+    } catch {
+      // JSON parse error, skip
+    }
   }
 }
 
 // Initialize
-child.stdin.write(JSON.stringify({
-  jsonrpc: "2.0",
-  id: 1,
-  method: "tools/call",
-  params: {
-    name: toolName,
-    arguments: JSON.parse(argsStr),
-  },
-}) + "\n");
+child.stdin.write(
+  JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "tools/call",
+    params: {
+      name: toolName,
+      arguments: JSON.parse(argsStr),
+    },
+  }) + "\n",
+);
 
 setTimeout(() => {
   if (!resolved) {
     // Try to parse whatever we got
-    const lines = buffer.split("\n").filter(l => l.trim());
+    const lines = buffer.split("\n").filter((l) => l.trim());
     for (const line of lines) {
       try {
         const msg = JSON.parse(line);
@@ -74,7 +78,9 @@ setTimeout(() => {
           console.log(JSON.stringify(msg, null, 2));
           process.exit(0);
         }
-      } catch {}
+      } catch {
+        // JSON parse error, skip
+      }
     }
     console.error("Timeout - no response received");
     console.error("Buffer:", buffer.slice(0, 2000));

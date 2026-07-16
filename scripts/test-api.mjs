@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from "fs";
+import { readFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import { TwitterApi } from "twitter-api-v2";

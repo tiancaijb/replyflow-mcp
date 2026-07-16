@@ -57,6 +57,7 @@ ReplyFlow MCP Server 是一个给独立开发者管理 Twitter 回复的 MCP 工
 ## 项目配置
 
 每个项目包含：
+
 - `name`：项目名称
 - `description`：一句话描述
 - `url`：项目链接

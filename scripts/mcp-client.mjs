@@ -17,7 +17,9 @@ const argsStr = process.argv[3] || "{}";
 const timeoutMs = parseInt(process.argv[4] || "30000", 10);
 
 if (!toolName) {
-  console.error("Usage: node scripts/mcp-client.mjs <toolName> '<json-args>' [timeoutMs]");
+  console.error(
+    "Usage: node scripts/mcp-client.mjs <toolName> '<json-args>' [timeoutMs]",
+  );
   process.exit(1);
 }
 
@@ -37,16 +39,17 @@ const child = spawn("node", [join(PROJECT_DIR, "dist/index.js")], {
 
 let buffer = "";
 let pendingResolve = null;
-let pendingReject = null;
+let _pendingReject = null;
 let reqId = 0;
 
 function send(method, params = {}) {
   reqId++;
-  const msg = JSON.stringify({ jsonrpc: "2.0", id: reqId, method, params }) + "\n";
+  const msg =
+    JSON.stringify({ jsonrpc: "2.0", id: reqId, method, params }) + "\n";
   child.stdin.write(msg);
   return new Promise((resolve, reject) => {
     pendingResolve = resolve;
-    pendingReject = reject;
+    _pendingReject = reject;
   });
 }
 
@@ -105,7 +108,10 @@ const timer = setTimeout(() => {
     }
 
     // Step 2: Send initialized notification
-    child.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
+    child.stdin.write(
+      JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) +
+        "\n",
+    );
 
     // Step 3: Call the tool
     const result = await send("tools/call", {

@@ -1,7 +1,6 @@
 /// <reference types="vitest/globals" />
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { join } from "path";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 
 // ── Mock fs ──────────────────────────────────────────────────────────────────
 
@@ -237,7 +236,8 @@ describe("account switching", () => {
 
       updateEffectiveConfig({ replyStyle: "supportive" });
 
-      const writtenContent = vi.mocked(writeFileSync).mock.calls[0][1] as string;
+      const writtenContent = vi.mocked(writeFileSync).mock
+        .calls[0][1] as string;
       const parsed = JSON.parse(writtenContent);
       expect(parsed.replyStyle).toBe("supportive");
       expect(parsed.activeProject).toBe("myapp");

@@ -43,7 +43,9 @@ import type { HistoryEntry } from "../src/history.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeEntry(overrides: Partial<HistoryEntry> & { id: number }): HistoryEntry {
+function makeEntry(
+  overrides: Partial<HistoryEntry> & { id: number },
+): HistoryEntry {
   return {
     tweetId: "",
     text: "test",
@@ -108,9 +110,24 @@ describe("history", () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue(
         JSON.stringify([
-          makeEntry({ id: 1, tweetId: "100", text: "old1", copiedAt: "2024-01-01T00:00:00Z" }),
-          makeEntry({ id: 2, tweetId: "101", text: "old2", copiedAt: "2024-01-02T00:00:00Z" }),
-          makeEntry({ id: 3, tweetId: "102", text: "old3", copiedAt: "2024-01-03T00:00:00Z" }),
+          makeEntry({
+            id: 1,
+            tweetId: "100",
+            text: "old1",
+            copiedAt: "2024-01-01T00:00:00Z",
+          }),
+          makeEntry({
+            id: 2,
+            tweetId: "101",
+            text: "old2",
+            copiedAt: "2024-01-02T00:00:00Z",
+          }),
+          makeEntry({
+            id: 3,
+            tweetId: "102",
+            text: "old3",
+            copiedAt: "2024-01-03T00:00:00Z",
+          }),
         ]),
       );
 
@@ -143,7 +160,14 @@ describe("history", () => {
     it("supports conversationId and inReplyToTweetId", () => {
       vi.mocked(existsSync).mockReturnValue(false);
 
-      const entry = appendHistory("Hello", "1", "casual", "default", "conv-123", "parent-456");
+      const entry = appendHistory(
+        "Hello",
+        "1",
+        "casual",
+        "default",
+        "conv-123",
+        "parent-456",
+      );
 
       expect(entry.conversationId).toBe("conv-123");
       expect(entry.inReplyToTweetId).toBe("parent-456");
@@ -155,7 +179,12 @@ describe("history", () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue(
         JSON.stringify([
-          makeEntry({ id: 1, tweetId: "100", text: "existing", copiedAt: "2024-01-01T00:00:00Z" }),
+          makeEntry({
+            id: 1,
+            tweetId: "100",
+            text: "existing",
+            copiedAt: "2024-01-01T00:00:00Z",
+          }),
         ]),
       );
 
@@ -164,7 +193,8 @@ describe("history", () => {
       expect(entry.id).toBe(2);
 
       // writeFileSync should contain both entries
-      const writtenContent: string = vi.mocked(writeFileSync).mock.calls[0][1] as string;
+      const writtenContent: string = vi.mocked(writeFileSync).mock
+        .calls[0][1] as string;
       const parsed = JSON.parse(writtenContent);
       expect(parsed).toHaveLength(2);
       expect(parsed[0].id).toBe(1);
@@ -204,9 +234,24 @@ describe("history", () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue(
         JSON.stringify([
-          makeEntry({ id: 1, tweetId: "100", text: "oldest", copiedAt: "2024-01-01T00:00:00Z" }),
-          makeEntry({ id: 2, tweetId: "101", text: "newest", copiedAt: "2024-12-31T00:00:00Z" }),
-          makeEntry({ id: 3, tweetId: "102", text: "middle", copiedAt: "2024-06-15T00:00:00Z" }),
+          makeEntry({
+            id: 1,
+            tweetId: "100",
+            text: "oldest",
+            copiedAt: "2024-01-01T00:00:00Z",
+          }),
+          makeEntry({
+            id: 2,
+            tweetId: "101",
+            text: "newest",
+            copiedAt: "2024-12-31T00:00:00Z",
+          }),
+          makeEntry({
+            id: 3,
+            tweetId: "102",
+            text: "middle",
+            copiedAt: "2024-06-15T00:00:00Z",
+          }),
         ]),
       );
 
@@ -222,9 +267,24 @@ describe("history", () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue(
         JSON.stringify([
-          makeEntry({ id: 1, tweetId: "100", text: "alpha", copiedAt: "2024-01-01T00:00:00Z" }),
-          makeEntry({ id: 2, tweetId: "200", text: "bravo", copiedAt: "2024-02-01T00:00:00Z" }),
-          makeEntry({ id: 3, tweetId: "100", text: "charlie", copiedAt: "2024-03-01T00:00:00Z" }),
+          makeEntry({
+            id: 1,
+            tweetId: "100",
+            text: "alpha",
+            copiedAt: "2024-01-01T00:00:00Z",
+          }),
+          makeEntry({
+            id: 2,
+            tweetId: "200",
+            text: "bravo",
+            copiedAt: "2024-02-01T00:00:00Z",
+          }),
+          makeEntry({
+            id: 3,
+            tweetId: "100",
+            text: "charlie",
+            copiedAt: "2024-03-01T00:00:00Z",
+          }),
         ]),
       );
 
@@ -239,9 +299,19 @@ describe("history", () => {
       vi.mocked(readFileSync).mockReturnValue(
         JSON.stringify([
           makeEntry({ id: 1, tweetId: "100", text: "sent1", status: "sent" }),
-          makeEntry({ id: 2, tweetId: "101", text: "replied1", status: "replied" }),
+          makeEntry({
+            id: 2,
+            tweetId: "101",
+            text: "replied1",
+            status: "replied",
+          }),
           makeEntry({ id: 3, tweetId: "102", text: "sent2", status: "sent" }),
-          makeEntry({ id: 4, tweetId: "103", text: "followed", status: "followed_up" }),
+          makeEntry({
+            id: 4,
+            tweetId: "103",
+            text: "followed",
+            status: "followed_up",
+          }),
         ]),
       );
 
@@ -347,7 +417,12 @@ describe("history", () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue(
         JSON.stringify([
-          makeEntry({ id: 1, tweetId: "100", text: "alpha", copiedAt: "2024-01-01T00:00:00Z" }),
+          makeEntry({
+            id: 1,
+            tweetId: "100",
+            text: "alpha",
+            copiedAt: "2024-01-01T00:00:00Z",
+          }),
         ]),
       );
 
@@ -364,10 +439,30 @@ describe("history", () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue(
         JSON.stringify([
-          makeEntry({ id: 1, tweetId: "100", text: "reply a", copiedAt: "2024-01-01T00:00:00Z" }),
-          makeEntry({ id: 2, tweetId: "200", text: "reply b", copiedAt: "2024-02-01T00:00:00Z" }),
-          makeEntry({ id: 3, tweetId: "100", text: "reply c", copiedAt: "2024-03-01T00:00:00Z" }),
-          makeEntry({ id: 4, tweetId: "300", text: "reply d", copiedAt: "2024-04-01T00:00:00Z" }),
+          makeEntry({
+            id: 1,
+            tweetId: "100",
+            text: "reply a",
+            copiedAt: "2024-01-01T00:00:00Z",
+          }),
+          makeEntry({
+            id: 2,
+            tweetId: "200",
+            text: "reply b",
+            copiedAt: "2024-02-01T00:00:00Z",
+          }),
+          makeEntry({
+            id: 3,
+            tweetId: "100",
+            text: "reply c",
+            copiedAt: "2024-03-01T00:00:00Z",
+          }),
+          makeEntry({
+            id: 4,
+            tweetId: "300",
+            text: "reply d",
+            copiedAt: "2024-04-01T00:00:00Z",
+          }),
         ]),
       );
 
@@ -384,9 +479,24 @@ describe("history", () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue(
         JSON.stringify([
-          makeEntry({ id: 1, tweetId: "100", text: "valid", copiedAt: "2024-01-01T00:00:00Z" }),
-          makeEntry({ id: 2, tweetId: "", text: "empty id", copiedAt: "2024-02-01T00:00:00Z" }),
-          makeEntry({ id: 3, tweetId: "200", text: "valid", copiedAt: "2024-03-01T00:00:00Z" }),
+          makeEntry({
+            id: 1,
+            tweetId: "100",
+            text: "valid",
+            copiedAt: "2024-01-01T00:00:00Z",
+          }),
+          makeEntry({
+            id: 2,
+            tweetId: "",
+            text: "empty id",
+            copiedAt: "2024-02-01T00:00:00Z",
+          }),
+          makeEntry({
+            id: 3,
+            tweetId: "200",
+            text: "valid",
+            copiedAt: "2024-03-01T00:00:00Z",
+          }),
         ]),
       );
 
@@ -431,7 +541,12 @@ describe("history", () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue(
         JSON.stringify([
-          makeEntry({ id: 1, tweetId: "100", text: "already replied", status: "replied" }),
+          makeEntry({
+            id: 1,
+            tweetId: "100",
+            text: "already replied",
+            status: "replied",
+          }),
         ]),
       );
 
@@ -445,7 +560,12 @@ describe("history", () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue(
         JSON.stringify([
-          makeEntry({ id: 1, tweetId: "100", text: "my reply", status: "sent" }),
+          makeEntry({
+            id: 1,
+            tweetId: "100",
+            text: "my reply",
+            status: "sent",
+          }),
         ]),
       );
 
@@ -459,14 +579,19 @@ describe("history", () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue(
         JSON.stringify([
-          makeEntry({ id: 1, tweetId: "100", text: "my reply", status: "sent" }),
+          makeEntry({
+            id: 1,
+            tweetId: "100",
+            text: "my reply",
+            status: "sent",
+          }),
         ]),
       );
 
       const mockFetcher = () => ({
-        authorId: "author-1",   // original tweet author
+        authorId: "author-1", // original tweet author
         replies: [
-          { authorId: "other-user" },  // reply from someone else
+          { authorId: "other-user" }, // reply from someone else
         ],
       });
 
@@ -478,7 +603,9 @@ describe("history", () => {
 
       // Verify write was called with updated status
       expect(writeFileSync).toHaveBeenCalledTimes(1);
-      const writtenContent = JSON.parse(vi.mocked(writeFileSync).mock.calls[0][1] as string);
+      const writtenContent = JSON.parse(
+        vi.mocked(writeFileSync).mock.calls[0][1] as string,
+      );
       expect(writtenContent[0].status).toBe("replied");
     });
 
@@ -486,14 +613,19 @@ describe("history", () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue(
         JSON.stringify([
-          makeEntry({ id: 1, tweetId: "100", text: "my reply", status: "sent" }),
+          makeEntry({
+            id: 1,
+            tweetId: "100",
+            text: "my reply",
+            status: "sent",
+          }),
         ]),
       );
 
       const mockFetcher = () => ({
         authorId: "author-1",
         replies: [
-          { authorId: "author-1" },  // original author replying to own thread
+          { authorId: "author-1" }, // original author replying to own thread
         ],
       });
 
@@ -507,14 +639,19 @@ describe("history", () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue(
         JSON.stringify([
-          makeEntry({ id: 1, tweetId: "100", text: "my reply", status: "sent" }),
+          makeEntry({
+            id: 1,
+            tweetId: "100",
+            text: "my reply",
+            status: "sent",
+          }),
         ]),
       );
 
       const mockFetcher = () => ({
         authorId: "author-1",
         replies: [
-          { authorId: "me" },  // our own reply (we are the authenticated user)
+          { authorId: "me" }, // our own reply (we are the authenticated user)
         ],
       });
 
@@ -529,8 +666,18 @@ describe("history", () => {
       const entries = [
         makeEntry({ id: 1, tweetId: "100", text: "got reply", status: "sent" }),
         makeEntry({ id: 2, tweetId: "200", text: "no reply", status: "sent" }),
-        makeEntry({ id: 3, tweetId: "300", text: "also reply", status: "sent" }),
-        makeEntry({ id: 4, tweetId: "400", text: "already done", status: "followed_up" }),
+        makeEntry({
+          id: 3,
+          tweetId: "300",
+          text: "also reply",
+          status: "sent",
+        }),
+        makeEntry({
+          id: 4,
+          tweetId: "400",
+          text: "already done",
+          status: "followed_up",
+        }),
       ];
       vi.mocked(readFileSync).mockReturnValue(JSON.stringify(entries));
 
@@ -559,8 +706,18 @@ describe("history", () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue(
         JSON.stringify([
-          makeEntry({ id: 1, tweetId: "", text: "no tweet id", status: "sent" }),
-          makeEntry({ id: 2, tweetId: "200", text: "has tweet id", status: "sent" }),
+          makeEntry({
+            id: 1,
+            tweetId: "",
+            text: "no tweet id",
+            status: "sent",
+          }),
+          makeEntry({
+            id: 2,
+            tweetId: "200",
+            text: "has tweet id",
+            status: "sent",
+          }),
         ]),
       );
 
@@ -585,10 +742,34 @@ describe("history", () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue(
         JSON.stringify([
-          makeEntry({ id: 1, tweetId: "100", text: "sent", status: "sent", copiedAt: "2024-01-01T00:00:00Z" }),
-          makeEntry({ id: 2, tweetId: "101", text: "replied old", status: "replied", copiedAt: "2024-02-01T00:00:00Z" }),
-          makeEntry({ id: 3, tweetId: "102", text: "followed up", status: "followed_up", copiedAt: "2024-03-01T00:00:00Z" }),
-          makeEntry({ id: 4, tweetId: "103", text: "replied new", status: "replied", copiedAt: "2024-04-01T00:00:00Z" }),
+          makeEntry({
+            id: 1,
+            tweetId: "100",
+            text: "sent",
+            status: "sent",
+            copiedAt: "2024-01-01T00:00:00Z",
+          }),
+          makeEntry({
+            id: 2,
+            tweetId: "101",
+            text: "replied old",
+            status: "replied",
+            copiedAt: "2024-02-01T00:00:00Z",
+          }),
+          makeEntry({
+            id: 3,
+            tweetId: "102",
+            text: "followed up",
+            status: "followed_up",
+            copiedAt: "2024-03-01T00:00:00Z",
+          }),
+          makeEntry({
+            id: 4,
+            tweetId: "103",
+            text: "replied new",
+            status: "replied",
+            copiedAt: "2024-04-01T00:00:00Z",
+          }),
         ]),
       );
 
@@ -604,7 +785,12 @@ describe("history", () => {
       vi.mocked(readFileSync).mockReturnValue(
         JSON.stringify([
           makeEntry({ id: 1, tweetId: "100", text: "sent", status: "sent" }),
-          makeEntry({ id: 2, tweetId: "101", text: "followed", status: "followed_up" }),
+          makeEntry({
+            id: 2,
+            tweetId: "101",
+            text: "followed",
+            status: "followed_up",
+          }),
         ]),
       );
 
@@ -636,7 +822,9 @@ describe("history", () => {
 
       // Verify write
       expect(writeFileSync).toHaveBeenCalledTimes(1);
-      const written = JSON.parse(vi.mocked(writeFileSync).mock.calls[0][1] as string);
+      const written = JSON.parse(
+        vi.mocked(writeFileSync).mock.calls[0][1] as string,
+      );
       expect(written[0].status).toBe("followed_up");
     });
 

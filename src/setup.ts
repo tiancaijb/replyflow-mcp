@@ -75,14 +75,26 @@ function printSaveSummary(config: Partial<Config>): void {
   console.log("  │                                                      │");
   console.log("  │   📋 Configuration Summary                           │");
   console.log("  │                                                      │");
-  console.log(`  │     Project:         ${(projectName + "                    ").slice(0, 37)}│`);
+  console.log(
+    `  │     Project:         ${(projectName + "                    ").slice(0, 37)}│`,
+  );
   if (project) {
-    console.log(`  │     Description:     ${(project.description + "                    ").slice(0, 37)}│`);
-    console.log(`  │     URL:             ${(project.url + "                    ").slice(0, 37)}│`);
-    console.log(`  │     Keywords:        ${(project.keywords.join(", ") + "                    ").slice(0, 37)}│`);
+    console.log(
+      `  │     Description:     ${(project.description + "                    ").slice(0, 37)}│`,
+    );
+    console.log(
+      `  │     URL:             ${(project.url + "                    ").slice(0, 37)}│`,
+    );
+    console.log(
+      `  │     Keywords:        ${(project.keywords.join(", ") + "                    ").slice(0, 37)}│`,
+    );
   }
-  console.log(`  │     Reply Style:     ${(config.replyStyle ?? "curious" + "                    ").slice(0, 37)}│`);
-  console.log(`  │     Language:        ${((config.language ?? "(auto-detect on first use)") + "                    ").slice(0, 37)}│`);
+  console.log(
+    `  │     Reply Style:     ${(config.replyStyle ?? "curious" + "                    ").slice(0, 37)}│`,
+  );
+  console.log(
+    `  │     Language:        ${((config.language ?? "(auto-detect on first use)") + "                    ").slice(0, 37)}│`,
+  );
   console.log("  │                                                      │");
   console.log("  ╰──────────────────────────────────────────────────────╯");
   console.log("");
@@ -95,7 +107,9 @@ function printSaveSummary(config: Partial<Config>): void {
  */
 async function stepProjectName(rl: ReadlineInterface): Promise<string> {
   console.log("");
-  console.log("  ── Step 1: Project Name ───────────────────────────────────────");
+  console.log(
+    "  ── Step 1: Project Name ───────────────────────────────────────",
+  );
   console.log("");
   console.log("  What's your project called? (e.g. 'ReplyFlow', 'My SaaS')");
   console.log("  This is used to identify the project in your config.");
@@ -112,10 +126,14 @@ async function stepProjectDescription(
   projectName: string,
 ): Promise<string> {
   console.log("");
-  console.log("  ── Step 2: Project Description ────────────────────────────────");
+  console.log(
+    "  ── Step 2: Project Description ────────────────────────────────",
+  );
   console.log("");
   console.log(`  Describe ${projectName} in one line.`);
-  console.log("  (e.g. 'AI-powered code review for teams', 'Twitter reply manager')");
+  console.log(
+    "  (e.g. 'AI-powered code review for teams', 'Twitter reply manager')",
+  );
   console.log("");
 
   return await ask(rl, "  Description: ");
@@ -129,7 +147,9 @@ async function stepProjectUrl(
   projectName: string,
 ): Promise<string> {
   console.log("");
-  console.log("  ── Step 3: Project URL ────────────────────────────────────────");
+  console.log(
+    "  ── Step 3: Project URL ────────────────────────────────────────",
+  );
   console.log("");
   console.log(`  What's the URL for ${projectName}?`);
   console.log("");
@@ -143,7 +163,9 @@ async function stepProjectUrl(
 async function stepKeywords(rl: ReadlineInterface): Promise<string[]> {
   const DEFAULT = "indie dev, saas, build in public, coding, solopreneur";
   console.log("");
-  console.log("  ── Step 4: Keywords for Topic Search ───────────────────────────");
+  console.log(
+    "  ── Step 4: Keywords for Topic Search ───────────────────────────",
+  );
   console.log("");
   console.log("  These keywords are used to find relevant tweets to reply to.");
   console.log("  Separate multiple keywords with commas.");
@@ -169,7 +191,9 @@ async function stepReplyStyle(rl: ReadlineInterface): Promise<ReplyStyle> {
   ];
 
   console.log("");
-  console.log("  ── Step 5: Reply Style ─────────────────────────────────────────");
+  console.log(
+    "  ── Step 5: Reply Style ─────────────────────────────────────────",
+  );
   console.log("");
   console.log("  How would you like your replies to sound by default?");
   console.log("");
@@ -218,7 +242,9 @@ export async function runInteractiveSetup(): Promise<boolean> {
 
     // Step 6: Language (optional)
     console.log("");
-    console.log("  ── Step 6: Language for Reply Explanations ────────────────");
+    console.log(
+      "  ── Step 6: Language for Reply Explanations ────────────────",
+    );
     console.log("");
     console.log("  Language used to explain generated reply options to you.");
     console.log("  If not set, the AI will auto-detect from your first input.");
@@ -248,7 +274,11 @@ export async function runInteractiveSetup(): Promise<boolean> {
     // ── Confirm and save ──────────────────────────────────────────────
     printSaveSummary(config);
 
-    const confirm = await askWithDefault(rl, "  Save configuration? (Y/n): ", "y");
+    const confirm = await askWithDefault(
+      rl,
+      "  Save configuration? (Y/n): ",
+      "y",
+    );
     if (confirm.toLowerCase() === "n") {
       console.log("");
       console.log("  ❌ Setup cancelled. No changes saved.");

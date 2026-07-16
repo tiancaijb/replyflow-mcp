@@ -7,11 +7,7 @@ import type { LogLevel } from "./logger.js";
 // ── Config Type ──────────────────────────────────────────────────────────────
 
 export type ReplyStyle =
-  | "casual"
-  | "curious"
-  | "supportive"
-  | "thoughtful"
-  | "auto";
+  "casual" | "curious" | "supportive" | "thoughtful" | "auto";
 
 export interface Project {
   /** Project display name */
@@ -249,7 +245,10 @@ export function checkCredentials(
  */
 export function getNicheKeywords(config: Config): string[] {
   const activeProjectName = config.activeProject;
-  if (activeProjectName && config.projects?.[activeProjectName]?.keywords?.length) {
+  if (
+    activeProjectName &&
+    config.projects?.[activeProjectName]?.keywords?.length
+  ) {
     return config.projects[activeProjectName].keywords;
   }
   if (config.nicheKeywords && config.nicheKeywords.length > 0) {

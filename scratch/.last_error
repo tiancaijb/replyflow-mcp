@@ -1,24 +1,26 @@
-ticket-0015:
+ticket-0022:
   • Code Review → 退出码 1
-  有 4 个具体问题，以下逐一列出并提供修改建议。
+  发现了 3 个问题（含 1 个坏味道 + 1 个兼容性缺陷 + 1 个 scope creep），以下是具体问题和修改建议。
 
 ---
 
-## 问题 1：重复的错误消息格式化逻辑（3 处复制粘贴）
+## 问题 1：`no-undef: "off"` 作用域过宽（坏味道）
 
-在 `getTrendingPosts`、`getTweetWithReplies`、`list` 中重复：
+**问题**：`eslint.config.mjs` 中 `no-undef: "off"` 没有 `files` 过滤器，它对**所有文件**生效，包括 `scripts/**/*.mjs`。导致：
+- 下面 `.mjs` 配置块声明的 `globals: { process, console, ... }` 形同虚设——永远不会被用到
+- `.mjs` 脚本文件失去了未定义变量引用检查
 
-**当前代码（3 处）：**
-```typescript
-// getTrendingPosts L290-294
-const msg = err instanceof CliError
-  ? getUserFriendlyMessage(err)
-  : err instanceof Error ? err.message : String(err);
+**修复**：给全局 rules 块加上 `files` 过滤器，只对 TS 文件关闭 `no-undef`：
 
-// getTweetWithReplies L366-371
-const msg = err instanceof CliError
-  ? getUserFriendlyMessage(err)
-  : err instanceof Error ? err.message : String(err);
+```js
+// 修改前
+{
+  rules: {
+    "no-undef": "off",
+    // ...
+  },
+},
 
-// list L405-412
-result.error = err instanceof
+// 修改后
+{
+  files: ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts"]

@@ -40,9 +40,7 @@ vi.spyOn(console, "log").mockImplementation(() => {});
 
 // ── Import after mocks ───────────────────────────────────────────────────────
 
-import {
-  runInteractiveSetup,
-} from "../src/setup.js";
+import { runInteractiveSetup } from "../src/setup.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -141,7 +139,13 @@ describe("runInteractiveSetup", () => {
         activeProject: "TestPro",
         projects: expect.objectContaining({
           TestPro: expect.objectContaining({
-            keywords: ["indie dev", "saas", "build in public", "coding", "solopreneur"],
+            keywords: [
+              "indie dev",
+              "saas",
+              "build in public",
+              "coding",
+              "solopreneur",
+            ],
           }),
         }),
         replyStyle: "curious",
@@ -185,15 +189,7 @@ describe("runInteractiveSetup", () => {
 
   it("handles invalid style choice by defaulting to the last valid option", async () => {
     // "999" → parseInt("999") - 1 = 998 → Math.min(998, 4) = 4 → STYLES[4] = "auto"
-    mockAnswers([
-      "MyApp",
-      "Test",
-      "https://test.dev",
-      "test",
-      "999",
-      "",
-      "y",
-    ]);
+    mockAnswers(["MyApp", "Test", "https://test.dev", "test", "999", "", "y"]);
 
     const result = await runInteractiveSetup();
 

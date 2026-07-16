@@ -129,10 +129,7 @@ export function classifyCliError(
 
   // ── 2) Process killed by signal (likely timeout) ─────────────────────
   if (signal === "SIGTERM" && exitCode === null) {
-    return new CliTimeoutError(
-      "Twitter CLI timed out",
-      0,
-    );
+    return new CliTimeoutError("Twitter CLI timed out", 0);
   }
 
   // ── 3) Non-zero exit code ──────────────────────────────────────────

@@ -48,9 +48,8 @@ afterEach(() => {
 
 describe("reply chain tracking", () => {
   it("tracks sent → replied → followed_up lifecycle", async () => {
-    const { appendHistory, checkForReplies, getFollowUpTweets, updateEntryStatus } =
+    const { appendHistory, checkForReplies, getFollowUpTweets } =
       await import("../../src/history.js");
-    const { getTweetWithReplies } = await import("../../src/twitter.js");
 
     // ── 1. Create a sent entry ───────────────────────────────────────
     const entry = appendHistory(
@@ -69,9 +68,7 @@ describe("reply chain tracking", () => {
 
     const mockThread = {
       authorId: "author-1",
-      replies: [
-        { authorId: "other-user" },
-      ],
+      replies: [{ authorId: "other-user" }],
     };
 
     const updated = checkForReplies(
@@ -106,12 +103,7 @@ describe("reply chain tracking", () => {
       await import("../../src/history.js");
 
     // Create a sent entry for a tweet where only "me" replied
-    const entry = appendHistory(
-      "Great post!",
-      "tweet-only-own-replies",
-      "supportive",
-      "me",
-    );
+    appendHistory("Great post!", "tweet-only-own-replies", "supportive", "me");
 
     // Mock thread where the only reply is from us
     const mockThread = {
@@ -121,10 +113,7 @@ describe("reply chain tracking", () => {
       ],
     };
 
-    const updated = checkForReplies(
-      () => mockThread,
-      "me-user-id",
-    );
+    const updated = checkForReplies(() => mockThread, "me-user-id");
 
     // No external replies → no status change
     expect(updated.length).toBe(0);
@@ -137,18 +126,10 @@ describe("reply chain tracking", () => {
     const { appendHistory, checkForReplies } =
       await import("../../src/history.js");
 
-    appendHistory(
-      "Nice work!",
-      "non-existent-tweet",
-      "curious",
-      "test",
-    );
+    appendHistory("Nice work!", "non-existent-tweet", "curious", "test");
 
     // getThread returns null (tweet not found)
-    const updated = checkForReplies(
-      () => null,
-      "me-user-id",
-    );
+    const updated = checkForReplies(() => null, "me-user-id");
 
     expect(updated.length).toBe(0);
   });
@@ -170,10 +151,7 @@ describe("reply chain tracking", () => {
       replies: [],
     };
 
-    const updated = checkForReplies(
-      () => mockThread,
-      "me-user-id",
-    );
+    const updated = checkForReplies(() => mockThread, "me-user-id");
 
     expect(updated.length).toBe(0);
 
