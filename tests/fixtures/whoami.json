@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": {
+    "user": {
+      "id": "me-user-id",
+      "name": "Current User",
+      "username": "currentuser",
+      "screenName": "currentuser"
+    }
+  }
+}

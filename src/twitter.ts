@@ -1,4 +1,6 @@
+import { readFileSync } from "fs";
 import { spawnSync } from "child_process";
+import { join } from "path";
 import { Config, getNicheKeywords } from "./config.js";
 import logger from "./logger.js";
 import { cache } from "./cache.js";
@@ -128,6 +130,11 @@ function formatCliError(err: unknown): string {
  * Throws a classified CliError on failure.
  */
 function runTwitter(args: string[], options?: { timeout?: number }): CliResponse {
+  // ── Mock mode for integration tests ────────────────────────────────
+  if (process.env.REPLYFLOW_MOCK_CLI === "true") {
+    return runTwitterMock(args);
+  }
+
   const timeout = options?.timeout ?? 30000;
   const maxRetries = 2;
   const retryDelays = [1000, 3000];
@@ -417,6 +424,42 @@ export function getTweetWithReplies(tweetId: string): CliTweetData[] {
   } catch (err) {
     logger.error(`Failed to fetch tweet ${tweetId}: ${formatCliError(err)}`);
     return [];
+  }
+}
+
+// ── Mock CLI (for integration tests) ──────────────────────────────────────────
+
+/**
+ * Determine the CLI command name from the arguments.
+ * First non-flag, non-option argument is the command (e.g., "search", "whoami", "tweet").
+ */
+function extractCommand(args: string[]): string {
+  for (const arg of args) {
+    if (!arg.startsWith("-")) return arg;
+  }
+  return "unknown";
+}
+
+/**
+ * Mock version of runTwitter that reads from fixture files.
+ * Only used when REPLYFLOW_MOCK_CLI=true.
+ * Fixtures are resolved relative to the project root (tests/fixtures/{command}.json).
+ */
+function runTwitterMock(args: string[]): CliResponse {
+  const command = extractCommand(args);
+  // Resolve fixtures relative to CWD (project root when running tests)
+  const fixturePath = join(process.cwd(), "tests", "fixtures", `${command}.json`);
+
+  try {
+    const raw = readFileSync(fixturePath, "utf-8");
+    return JSON.parse(raw) as CliResponse;
+  } catch (err) {
+    logger.error(`Mock CLI: fixture not found for command "${command}" at ${fixturePath}`);
+    return {
+      ok: false,
+      schema_version: "1",
+      data: [],
+    };
   }
 }
 

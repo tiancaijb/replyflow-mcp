@@ -1,0 +1,90 @@
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": [
+    {
+      "id": "tweet-thread-1",
+      "text": "This is the main tweet in a thread. What do you think?",
+      "author": {
+        "id": "author-1",
+        "name": "Test User 1",
+        "screenName": "testuser1",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/1_normal.jpg",
+        "verified": false
+      },
+      "metrics": {
+        "likes": 30,
+        "retweets": 8,
+        "replies": 3,
+        "quotes": 1,
+        "views": 800,
+        "bookmarks": 4
+      },
+      "createdAt": "2024-07-15T10:00:00.000Z",
+      "createdAtLocal": "2024-07-15 10:00",
+      "createdAtISO": "2024-07-15T10:00:00.000Z",
+      "media": [],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null
+    },
+    {
+      "id": "reply-to-main-1",
+      "text": "Great point! I think this approach works well.",
+      "author": {
+        "id": "other-user",
+        "name": "Other User",
+        "screenName": "otheruser",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/4_normal.jpg",
+        "verified": false
+      },
+      "metrics": {
+        "likes": 5,
+        "retweets": 0,
+        "replies": 0,
+        "quotes": 0,
+        "views": 100,
+        "bookmarks": 0
+      },
+      "createdAt": "2024-07-15T10:05:00.000Z",
+      "createdAtLocal": "2024-07-15 10:05",
+      "createdAtISO": "2024-07-15T10:05:00.000Z",
+      "media": [],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null
+    },
+    {
+      "id": "reply-to-main-2",
+      "text": "I tried something similar and it worked. Happy to share tips!",
+      "author": {
+        "id": "author-1",
+        "name": "Test User 1",
+        "screenName": "testuser1",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/1_normal.jpg",
+        "verified": false
+      },
+      "metrics": {
+        "likes": 3,
+        "retweets": 0,
+        "replies": 0,
+        "quotes": 0,
+        "views": 80,
+        "bookmarks": 0
+      },
+      "createdAt": "2024-07-15T10:10:00.000Z",
+      "createdAtLocal": "2024-07-15 10:10",
+      "createdAtISO": "2024-07-15T10:10:00.000Z",
+      "media": [],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null
+    }
+  ]
+}
