@@ -96,3 +96,234 @@ twitter-cli 使用浏览器 Cookie 认证，无需 Twitter API Key，不受 API 
 - @modelcontextprotocol/sdk
 - twitter-cli（Python CLI，通过 child_process 调用）
 - 无外部 API 依赖
+
+---
+
+# Phase 2 — 质量与生态
+
+> 第一批（Phase 1）实现了完整的功能集。Phase 2 聚焦测试覆盖、工程健壮性、CI/CD、文档和体验优化。
+
+---
+
+## 方向 1：setup.ts 测试覆盖
+
+### 问题陈述
+
+`src/setup.ts` 是交互式配置入口（`npx replyflow-mcp setup`），包含 6 步 CLI 引导流程，当前测试覆盖为 0。
+
+### 用户故事
+
+- 作为开发者，我想确保 setup 流程的所有路径（正常保存、取消、默认值、空输入）都经过测试
+
+### 验收标准
+
+- [ ] 测试 `stepProjectName`：空输入返回 false，正常输入返回项目名
+- [ ] 测试 `stepProjectDescription` / `stepProjectUrl` / `stepKeywords` / `stepReplyStyle`：各自输入和默认值路径
+- [ ] 测试完整流程 `runInteractiveSetup`：所有步骤走完→`updateEffectiveConfig` 被调用
+- [ ] 测试取消路径：任意步骤返回空或 n → 不保存，返回 false
+- [ ] 测试语言步骤：空字符串→language 为 undefined；有值→写入 config
+- [ ] 不修改 `src/setup.ts` 生产代码
+
+### 实施决策
+
+- 用 `vi.mock('node:readline/promises')` 模拟 readline，控制 `rl.question` 返回值序列
+- 测试文件：`tests/setup.test.ts`
+
+---
+
+## 方向 2：npm 自动发布 CI/CD
+
+### 问题陈述
+
+项目已配置 `package.json`（bin, files, MIT license），但缺少自动化发布流程。手动发布容易出错、忘记版本号。
+
+### 用户故事
+
+- 作为维护者，我不想手动 `npm publish`，希望 push tag 后自动发布
+- 作为维护者，我想在 PR 合并时自动运行测试和构建
+
+### 验收标准
+
+- [ ] `.github/workflows/publish.yml` — 当 push tag `v*` 时自动构建、测试、发布到 npm
+- [ ] `.github/workflows/ci.yml` — 每次 push/PR 运行 `npm test` + `npm run build`
+- [ ] `package.json` 添加 `publishConfig.access: public`
+- [ ] npm 发布前运行 `npm run build` 确保 dist/ 最新
+- [ ] 发布消息包含版本号和 changelog
+
+### 实施决策
+
+- 直接用 GitHub Actions + npm publish（不引入 semantic-release 减少依赖）
+- 使用 `secrets.NPM_TOKEN` 进行 npm 认证
+- CI 与 publish 分离为两个 workflow
+
+---
+
+## 方向 3：Twitter CLI 健壮性
+
+### 问题陈述
+
+`runTwitter()` 使用 `spawnSync` 调用 twitter-cli，当前无超时控制、无重试逻辑、错误消息原始（stderr 直接暴露）。
+
+### 用户故事
+
+- 作为用户，当 twitter-cli 超时时，工具应返回清晰错误而非 hang
+- 作为用户，当网络抖动导致 twitter-cli 失败时，工具应自动重试
+- 作为用户，当认证过期时，应提示重新认证而非抛出 cryptic error
+
+### 验收标准
+
+- [ ] 超时控制：`spawnSync` 增加 `timeout` 参数（默认 30s），超时抛出 TimeoutError
+- [ ] 重试退避：网络错误（ECONNRESET/ETIMEDOUT）自动重试最多 2 次，间隔 1s/3s
+- [ ] 错误分类：区分 NetworkError / AuthError / RateLimitError / ParseError
+- [ ] 错误消息：分类后的用户友好消息，而非原始 stderr
+- [ ] Auth 检测：CLI 返回 401/403 时抛出 AuthError，提示 `twitter status` 重新认证
+- [ ] 向后兼容：现有工具行为不受影响（错误 `catch` 仍返回 `{ error: message }`）
+
+### 实施决策
+
+- `runTwitter()` 内部封装超时 + 重试 + 分类逻辑
+- 新增 `errors.ts` 定义错误类和分类函数
+- 重试仅在可恢复的错误类型上执行（不是所有错误都重试）
+
+---
+
+## 方向 4：缓存机制
+
+### 问题陈述
+
+当前 `getTrendingPosts()` 每次调用都执行 twitter-cli 进程，同一关键词在短时间内重复搜索浪费资源。`getMe()` 已有简单缓存但缺少显式失效。
+
+### 用户故事
+
+- 作为用户，短时间内重复 `replyflow_list` 应使用缓存而非重复调用 CLI
+- 作为用户，切换账号或更新配置后缓存应自动失效
+
+### 验收标准
+
+- [ ] `getTrendingPosts` 结果缓存：相同关键词 + 相同账号在 TTL（默认 60s）内返回缓存
+- [ ] TTL 可配置：通过环境变量 `REPLYFLOW_CACHE_TTL` 或 config 字段
+- [ ] 缓存失效时机：切换账号、更新关键词配置
+- [ ] `resetClient()` 同时清空所有缓存
+- [ ] 内存缓存（非持久化），进程重启即清空
+- [ ] 缓存命中/未命中日志（debug 级别）
+
+### 实施决策
+
+- 新增 `src/cache.ts`：TTL Map 实现，支持 `get/set/delete/clear/keys/filter`
+- `getMe()` 移到缓存管理下，统一失效
+- 缓存 key = `${account}:keywords:${sorted_keywords}`
+
+---
+
+## 方向 5：结构化日志
+
+### 问题陈述
+
+当前所有输出用 `console.error` 直接打印，无级别区分、无上下文、无法控制输出量。MCP 协议要求所有日志走 stderr，但内容需要规范。
+
+### 用户故事
+
+- 作为开发者调试，我想看到 debug 级别的详细信息
+- 作为终端用户，我只想看 warn/error 级别的重要信息
+- 作为 MCP 客户端集成方，我希望日志格式一致方便排查
+
+### 验收标准
+
+- [ ] 日志分级：debug / info / warn / error
+- [ ] 日志函数：`logger.debug()` / `.info()` / `.warn()` / `.error()`，统一加 `[ReplyFlow]` 前缀
+- [ ] 可配置级别：环境变量 `LOG_LEVEL`（默认 `info`）或 config 字段 `logLevel`
+- [ ] 日志输出始终走 stderr（不干扰 MCP stdio）
+- [ ] 所有现有 `console.error` 替换为 logger 调用
+- [ ] 日志格式：`[ReplyFlow] [级别] 消息`（可选附加上下文）
+
+### 实施决策
+
+- 新增 `src/logger.ts`：轻量级 logger，无外部依赖
+- 设计为默认导出单例，也可创建带上下文的子 logger
+- 不引入 winston/pino 等重量级库
+
+---
+
+## 方向 6：集成测试套件
+
+### 问题陈述
+
+当前 4 个测试文件全部用 `vi.mock('fs')` 模拟文件系统，没有真正执行 twitter-cli 的集成测试。核心流程（config + history + twitter）的端到端路径未覆盖。
+
+### 用户故事
+
+- 作为开发者，我想在 CI 中运行集成测试确保核心流程在真实环境可用
+- 作为开发者，我希望有 mock CLI 服务器可以在无 twitter-cli 环境下测试
+
+### 验收标准
+
+- [ ] Mock CLI 服务器：一个轻量级 HTTP 或 stdio mock 替代 twitter-cli，返回预录 fixture
+- [ ] 集成测试 `tests/integration/`：覆盖 `config → twitter list → history → followups` 的端到端流程
+- [ ] Fixture 数据：预录的 search/whoami/tweet 响应（JSON 文件）
+- [ ] CI 中运行集成测试：GitHub Actions 中 npm test 包含集成测试
+- [ ] 单元测试和集成测试分离：`npm run test:unit` / `npm run test:integration`
+- [ ] Mock CLI 可以模拟错误场景（超时、auth 失败、rate-limit）
+
+### 实施决策
+
+- Mock 策略：替换 `spawnSync` 调用为 fixture 查找（通过环境变量开关）
+- 或：提供一个 `mock-twitter` 脚本替代 `twitter` 命令
+- 测试 fixture 存放：`tests/fixtures/` 目录
+- 优先使用 `REPLYFLOW_MOCK_CLI=true` 环境变量开关方式（无需额外进程）
+
+---
+
+## 方向 7：定时跟进检查
+
+### 问题陈述
+
+当前 `replyflow_followups` 需要用户主动调用。用户可能忘记检查待跟进对话，错过互动机会。
+
+### 用户故事
+
+- 作为用户，我希望服务器启动后自动轮询检查待跟进对话，发现新回复时通过 stderr 日志提醒我
+
+### 验收标准
+
+- [ ] 服务器启动时启动后台定时器，默认每 5 分钟检查一次 `sent` 条目的新回复
+- [ ] 检查间隔可配置：config 字段 `followupInterval`（分钟，设为 0 关闭）
+- [ ] 发现新回复时 logger.info 输出：`Found X new reply/ies — run replyflow_followups to view`
+- [ ] 节流：单次检查间隔内最多调用一次 `checkForReplies()`
+- [ ] MCP Server shutdown 时清理定时器
+- [ ] 不影响 MCP stdio 协议（所有输出走 stderr logger）
+- [ ] 已有 `replyflow_followups` tool 行为不变
+
+### 实施决策
+
+- 在 `startServer()` 末尾启动 `setInterval`
+- 定时器引用存储在 server 级变量，用于清理
+- 检查逻辑复用已有的 `checkForReplies()` 和 `getFollowUpTweets()`
+
+---
+
+## 方向 8：文档站 / 使用指南
+
+### 问题陈述
+
+项目已开源（MIT），README.md 包含基本用法，但缺少完整的文档站、多客户端配置示例、截图和视频演示。
+
+### 用户故事
+
+- 作为新用户，我希望有独立文档站展示安装、配置、使用示例
+- 作为用户，我想看到不同 MCP 客户端（Claude Code / Cursor / pi-agent）的具体配置
+
+### 验收标准
+
+- [ ] 文档站基于 GitHub Pages 部署
+- [ ] 使用 Vitepress 构建（与项目技术栈一致：Vite/TypeScript）
+- [ ] 页面覆盖：首页介绍 / 安装指南 / 配置说明 / 工具参考 / 客户端配置 / FAQ
+- [ ] 每个 MCP tool 有独立文档页，含参数说明和示例输出
+- [ ] 客户端配置示例：Claude Code `claude_desktop_config.json`、Cursor MCP 配置、pi-agent 配置
+- [ ] 操作截图或 GIF 演示
+- [ ] 文档站自动部署：push 到 `docs/` 目录或特定分支时自动构建 GitHub Pages
+
+### 实施决策
+
+- 在项目根目录创建 `docs/` 子目录，Vitepress 项目
+- GitHub Actions 部署到 GitHub Pages
+- 文档内容中文为主（与目标用户一致），关键词和 CLI 示例保持英文
